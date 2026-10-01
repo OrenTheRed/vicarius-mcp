@@ -17,6 +17,8 @@ from . import (  # noqa: F401
     tools_compliance,
     tools_reports,
     tools_scripts,
+    tools_resources,
+    tools_insights,
 )
 
 # Applied at import so read-only mode holds however the server is launched.

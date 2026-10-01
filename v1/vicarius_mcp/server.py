@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+from typing import Literal
 from urllib.parse import quote
 
 import fastmcp
@@ -148,10 +149,10 @@ def _put(path: str, params: dict | None = None, body: object = None) -> str:
         return f"ERROR: {exc}"
 
 
-def _delete(path: str, params: dict | None = None) -> str:
+def _delete(path: str, params: dict | None = None, body: object = None) -> str:
     try:
         with httpx.Client(timeout=TIMEOUT) as client:
-            r = client.delete(f"{_base()}{path}", headers=_headers(), params=params)
+            r = client.request("DELETE", f"{_base()}{path}", headers=_headers(), params=params, json=body)
         return _result(r, {"deleted": True})
     except Exception as exc:
         return f"ERROR: {exc}"
@@ -173,13 +174,13 @@ def list_assets(from_: int = 0, size: int = 100, q: str = "") -> str:
 @read_tool
 def get_asset_attributes(asset_id: str) -> str:
     """Get hardware and OS attributes for a single asset by its endpointId."""
-    return _get("/endpointAttributes/search", params={"q": f'endpointId=="{_rsql(asset_id)}"', "size": 1})
+    return _get("/endpointAttributes/search", params={"q": f'endpointId=="{_rsql(asset_id)}"', "from": 0, "size": 100})
 
 
 @read_tool
 def get_asset_ip_addresses(asset_id: str) -> str:
     """Get IP address information for a single asset by its endpointId."""
-    return _get("/endpointAttributes/search", params={"q": f'endpointId=="{_rsql(asset_id)}"', "size": 1, "includeFields": "endpointAttributesIpAddresses"})
+    return _get("/endpointAttributes/search", params={"q": f'endpointId=="{_rsql(asset_id)}"', "from": 0, "size": 100, "includeFields": "endpointAttributesIpAddresses"})
 
 
 @read_tool
@@ -219,17 +220,26 @@ def list_asset_groups(from_: int = 0, size: int = 100) -> str:
     )
 
 
+def _find_asset_group(group_id: str) -> dict | str:
+    """Fetch one asset group object by id, or return an ERROR string."""
+    raw = _get("/organizationEndpointGroup/search", params={"q": f'organizationEndpointGroupId=="{_rsql(group_id)}"', "from": 0, "size": 1})
+    if raw.startswith("ERROR"):
+        return raw
+    objects = json.loads(raw).get("serverResponseObject", [])
+    if not objects:
+        return f'ERROR: asset group "{group_id}" not found'
+    return objects[0]
+
+
 @read_tool
 def list_asset_group_members(group_id: str, from_: int = 0, size: int = 100) -> str:
     """List all assets that belong to a specific asset group (two-step: fetch group then query members)."""
-    raw = _get("/organizationEndpointGroup/search", params={"q": f'organizationEndpointGroupId=="{_rsql(group_id)}"', "size": 1})
-    if raw.startswith("ERROR"):
-        return raw
-    data = json.loads(raw)
-    objects = data.get("serverResponseObject", [])
-    if not objects:
-        return json.dumps({"serverResponseObject": [], "serverResponseCount": 0}, indent=2)
-    search_queries_raw = objects[0].get("organizationEndpointGroupSearchQueries", "[]")
+    group = _find_asset_group(group_id)
+    if isinstance(group, str):
+        if "not found" in group:
+            return json.dumps({"serverResponseObject": [], "serverResponseCount": 0}, indent=2)
+        return group
+    search_queries_raw = group.get("organizationEndpointGroupSearchQueries", "[]")
     search_queries = json.loads(search_queries_raw) if isinstance(search_queries_raw, str) else search_queries_raw
     return _post("/endpoint/search", params={"from": from_, "size": size}, body=search_queries)
 
@@ -243,6 +253,28 @@ def create_asset_group(name: str, description: str = "", query: str = "") -> str
         "organizationEndpointGroupQuery": query,
     }
     return _put("/organizationEndpointGroup/insert", body=payload)
+
+
+@destructive_tool
+def update_asset_group(group_id: str, changes: dict) -> str:
+    """Update an asset group. changes holds only the fields to change, e.g.
+    {"organizationEndpointGroupName": "...", "organizationEndpointGroupDescription": "...",
+    "organizationEndpointGroupQuery": "..."}. The current group is fetched first and the changes
+    merged into it, so fields you don't mention keep their values."""
+    group = _find_asset_group(group_id)
+    if isinstance(group, str):
+        return group
+    return _post("/organizationEndpointGroup/update", body={**group, **changes})
+
+
+@destructive_tool
+def delete_asset_group(group_id: str) -> str:
+    """Delete an asset group by its organizationEndpointGroupId. The assets themselves are not
+    affected."""
+    group = _find_asset_group(group_id)
+    if isinstance(group, str):
+        return group
+    return _delete("/organizationEndpointGroup/delete", body=group)
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +315,7 @@ def list_cves_by_severity(severity: str, from_: int = 0, size: int = 100) -> str
 @read_tool
 def get_cve_info(cve_id: str) -> str:
     """Get detailed information for a specific CVE ID (CVSS score, description, references)."""
-    return _get("/vulnerability/search", params={"q": f'vulnerabilityId=="{_rsql(cve_id)}"', "size": 1})
+    return _get("/vulnerability/search", params={"q": f'vulnerabilityId=="{_rsql(cve_id)}"', "from": 0, "size": 1})
 
 
 @read_tool
@@ -291,7 +323,7 @@ def get_asset_vulnerabilities(from_: int = 0, size: int = 100, asset_name: str =
     """List vulnerabilities across all assets, optionally filtered to a specific asset by name."""
     params: dict = {"from": from_, "size": size}
     if asset_name:
-        params["q"] = f'endpointName=="{_rsql(asset_name)}"'
+        params["q"] = f'organizationEndpointVulnerabilitiesEndpoint.endpointName=="{_rsql(asset_name)}"'
     return _get("/organizationEndpointVulnerabilities/search", params=params)
 
 
@@ -386,14 +418,52 @@ def list_top_10(type: str = "assets") -> str:
     if type == "assets":
         return _get(
             "/aggregation/searchGroup",
-            params={"objectName": "OrganizationEndpointVulnerabilities", "group": "endpointId", "size": 10, "sort": "-aggregationCount", "assetCount": "true"},
+            params={"objectName": "OrganizationEndpointVulnerabilities", "group": "endpointId", "from": 0, "size": 10, "sort": "-aggregationCount", "assetCount": "true"},
         )
     elif type == "cves":
         return _get(
             "/aggregation/searchGroup",
-            params={"objectName": "OrganizationEndpointVulnerabilities", "group": "vulnerabilityId", "size": 10, "sort": "-aggregationCount", "assetCount": "true"},
+            params={"objectName": "OrganizationEndpointVulnerabilities", "group": "vulnerabilityId", "from": 0, "size": 10, "sort": "-aggregationCount", "assetCount": "true"},
         )
     return f'ERROR: type must be "assets" or "cves", got "{type}"'
+
+
+_COUNT_PATHS = {
+    "vulnerabilities": "/vulnerability/count",
+    "events": "/incidentEvent/count",
+    "task_events": "/taskEvent/count",
+    "task_endpoint_events": "/taskEndpointsEvent/count",
+}
+
+
+@read_tool
+def count_objects(
+    object_type: Literal["vulnerabilities", "events", "task_events", "task_endpoint_events"],
+    q: str = "",
+) -> str:
+    """Count objects without listing them - much faster than paging for totals. object_type:
+    vulnerabilities (the vRx CVE catalog, not just CVEs on your assets), events (the event log),
+    task_events, or task_endpoint_events (per-endpoint task results).
+    q is an optional RSQL filter, e.g. vulnerabilitySensitivityLevel.sensitivityLevelName=="Critical".
+    The total is in serverResponseCount."""
+    path = _COUNT_PATHS.get(object_type)
+    if path is None:
+        return f'ERROR: object_type must be one of {sorted(_COUNT_PATHS)}, got "{object_type}"'
+    return _get(path, params={"q": q})
+
+
+@read_tool
+def group_by(object_name: str, group: str, q: str = "", from_: int = 0, size: int = 25, sort: str = "-aggregationCount", include_original_doc: bool = False) -> str:
+    """Group and count any object type by a field - a general version of list_top_10. object_name
+    is the object to aggregate, e.g. OrganizationEndpointVulnerabilities; group is the field to
+    group by, e.g. vulnerabilityId or endpointId. q is an optional RSQL filter; sort defaults to
+    the largest groups first; include_original_doc adds a sample document per group."""
+    params: dict = {"objectName": object_name, "group": group, "from": from_, "size": size, "sort": sort, "assetCount": "true"}
+    if q:
+        params["q"] = q
+    if include_original_doc:
+        params["includeOriginalDoc"] = "true"
+    return _get("/aggregation/searchGroup", params=params)
 
 
 @read_tool
@@ -487,15 +557,17 @@ def delete_invitation(invitation_id: str) -> str:
 # ---------------------------------------------------------------------------
 
 @read_tool
-def list_patch_catalog(from_: int = 0, size: int = 100) -> str:
-    """List the global patch catalog — all patches known to vRx, with metadata."""
-    return _get("/patchManagement/patch", params={"from": from_, "size": size})
+def list_patch_catalog(from_: int = 0, size: int = 100, software_type: Literal["APP", "OS"] = "APP") -> str:
+    """List the global patch catalog — all patches known to vRx, with metadata. software_type
+    is APP (third-party application patches) or OS (operating-system patches)."""
+    return _get("/patchManagement/patch", params={"from": from_, "size": size, "softwareType": software_type})
 
 
 @read_tool
-def get_patch_cve_info(patch_id: str) -> str:
-    """Get the CVEs addressed by a specific patch ID."""
-    return _get(f"/patchManagement/patch/{_seg(patch_id)}/cveInfo")
+def get_patch_cve_info(patch_id: str, source: Literal["VICARIUS", "XPATCH"] = "VICARIUS") -> str:
+    """Get the CVEs addressed by a specific patch ID. source is VICARIUS for regular catalog
+    patches or XPATCH for Vicarius xPatch (patchless protection) entries."""
+    return _get(f"/patchManagement/patch/{_seg(patch_id)}/cveInfo", params={"source": source})
 
 
 @read_tool

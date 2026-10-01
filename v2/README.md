@@ -1,7 +1,7 @@
 # vicarius-v2-mcp (v2): vRx v2 Customer API
 
 MCP server for the **Vicarius vRx v2 Customer API** (`https://vicarius.cloud/api`). It gives an AI
-agent **100 tools** (53 read-only, 21 write, 26 destructive) covering sites, assets, software,
+agent **115 tools** (68 read-only, 21 write, 26 destructive) covering sites, assets, software,
 vulnerability findings, scan/patch/script policies, CIS compliance, reports, credentials, users
 and API keys. One running server can manage **any number of tenants**.
 
@@ -52,7 +52,7 @@ In practice you just say *"show critical findings for globex"* and the agent pas
 | `VICARIUS_V2_TENANTS_FILE` | see table above | Path to the tenants file. |
 | `VICARIUS_V2_TENANTS` | | Tenants as an inline JSON string, same shape as the file. Only used when the tenants file does not exist. |
 | `VICARIUS_V2_DEFAULT_TENANT` | | Tenant used when a tool call omits `tenant`. |
-| `VICARIUS_READ_ONLY` | `false` | Set to `true` to expose only the 53 read-only tools. |
+| `VICARIUS_READ_ONLY` | `false` | Set to `true` to expose only the 68 read-only tools. |
 | `VICARIUS_V2_ALLOW_CUSTOM_HOSTS` | `false` | Allow `add_configured_tenant` to save a host outside `vicarius.cloud`. Hosts you put in the tenants file yourself are always allowed. |
 
 ### Managing tenants from the agent
@@ -72,6 +72,13 @@ To limit what a manipulated agent could do, `add_configured_tenant`:
 When the server writes the tenants file, it writes atomically and creates the file with
 owner-only permissions (`0600`) on macOS and Linux. On Windows, the file inherits the ACLs of your
 user profile folder.
+
+### Experimental tools
+
+`get_findings_trends`, `get_dashboard_summary` and `list_policy_runs(group_by="run")` use
+endpoints that the vRx web app relies on but that aren't part of the published Customer API.
+They're marked **[Experimental]** in their descriptions. Vicarius may change these endpoints
+without notice, so if one starts failing, the rest of the server is unaffected.
 
 ### Pagination and filters
 
@@ -264,8 +271,9 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 |---|---|---|
 | `list_policies` | read | List all policies (scan/patch/script) with unified filtering. |
 | `list_upcoming_policy_runs` | read | List policies with an upcoming scheduled run. |
-| `list_policy_runs` | read | List policy executions grouped by policy. |
+| `list_policy_runs` | read | List policy executions. |
 | `list_policy_run_tasks` | read | List individual policy run tasks (flat, one row per asset/task). |
+| `get_policy_run_details` | read | Drill into a policy's runs. |
 
 ### Patch Catalog
 
@@ -316,6 +324,15 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 | `get_compliance_checks` | read | List CIS compliance checks (rules) for a benchmark. |
 | `get_compliance_scan_summary` | read | Get the pass/fail summary for a single CIS compliance scan run by its scanRunId. |
 
+### Compliance Results
+
+| Tool | Access | Description |
+|---|---|---|
+| `search_compliance` | read | Search CIS compliance results. |
+| `get_compliance_benchmark_results` | read | Get compliance results for one CIS benchmark. |
+| `list_compliance_rules` | read | Browse a CIS benchmark's rules. |
+| `get_compliance_rule` | read | Drill into one CIS rule. |
+
 ### Scan Reports (evidence files)
 
 | Tool | Access | Description |
@@ -331,7 +348,9 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 | `create_report` | write | Create a custom report. |
 | `delete_report` | **destructive** | Delete a report by its id. |
 | `generate_report` | write | Generate a report from a natural-language prompt describing what it should contain. |
-| `list_report_executions` | read | List report executions (runs) across all reports. |
+| `list_report_executions` | read | List report executions (runs) across all reports, or only those of report_id. |
+| `get_report_execution` | read | Get one run of a report: its status and timing. |
+| `preview_report` | read | Preview a report's current content as CSV text, without running or exporting it. |
 
 ### Audit Logs
 
@@ -364,6 +383,34 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 | Tool | Access | Description |
 |---|---|---|
 | `search_public_scripts` | read | Search Vicarius's public script library. |
+
+### Get by ID
+
+| Tool | Access | Description |
+|---|---|---|
+| `get_resource` | read | Get one object by its id. |
+
+### Previews
+
+| Tool | Access | Description |
+|---|---|---|
+| `preview_group_expression` | read | Show which assets, software or patches a dynamic-group expression would match, without creating anything. |
+| `get_exclusion_rule_impact` | read | Show what an exclusion (risk-acceptance) rule hides. |
+
+### Distributions & Rankings
+
+| Tool | Access | Description |
+|---|---|---|
+| `get_distribution` | read | Get a summary breakdown for a site, the numbers behind the dashboard charts. |
+| `count_policies` | read | Count policies without listing them. |
+| `get_risk_score_history` | read | Get how the risk score of an asset or a finding changed over time, with the event behind each change. |
+
+### Trends & KPIs (experimental)
+
+| Tool | Access | Description |
+|---|---|---|
+| `get_findings_trends` | read | [Experimental: undocumented endpoint] Get finding trends over time: findings created, findings remediated, open backlog, and mean time to remediate (mttrDays), as time series. |
+| `get_dashboard_summary` | read | [Experimental: undocumented endpoints] Get the headline numbers in one call: total, active and inactive assets; total software; total findings and active findings per severity. |
 
 ## Development
 

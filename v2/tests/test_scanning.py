@@ -83,3 +83,27 @@ def test_policies_and_logs(vicarius_v2_env):
     assert json.loads(list_upcoming_policy_runs())[0]["id"] == "pol-2"
     assert json.loads(list_policy_runs())[0]["policyId"] == "pol-1"
     assert json.loads(list_policy_run_tasks())[0]["taskEntityId"] == "t-1"
+
+
+@respx.mock
+def test_list_policy_runs_group_by_run(vicarius_v2_env):
+    from vicarius_v2_mcp.tools_scanning import list_policy_runs
+    by_run = respx.get(f"{_base('acme')}/policy-logs/grouped-by-policy-run").mock(return_value=httpx.Response(200, json=[]))
+    list_policy_runs({"size": 1}, group_by="run")
+    assert by_run.called
+
+
+@respx.mock
+def test_get_policy_run_details(vicarius_v2_env):
+    from vicarius_v2_mcp.tools_scanning import get_policy_run_details
+    counts = respx.get(f"{_base('acme')}/policy-logs/status/counts/p-1").mock(return_value=httpx.Response(200, json={"failed": 1}))
+    summary = respx.get(f"{_base('acme')}/policy-logs/p-1/1700000000000/export/summary").mock(return_value=httpx.Response(200, json=[]))
+    output = respx.get(f"{_base('acme')}/policy-logs/p-1/1700000000000/output/t-1").mock(
+        return_value=httpx.Response(200, text="Installation failed", headers={"content-type": "text/plain"}))
+    assert json.loads(get_policy_run_details("p-1"))["failed"] == 1
+    get_policy_run_details("p-1", "summary", 1700000000000)
+    assert summary.calls.last.request.url.params["format"] == "json"
+    assert get_policy_run_details("p-1", "task_output", 1700000000000, "t-1") == "Installation failed"
+    assert counts.called and output.called
+    assert get_policy_run_details("p-1", "summary").startswith("ERROR")
+    assert get_policy_run_details("p-1", "task_output", 1700000000000).startswith("ERROR")

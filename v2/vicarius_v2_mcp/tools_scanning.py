@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from .app import destructive_tool, read_tool, write_tool
 from .client import _delete, _get, _post, _put, seg
 
@@ -138,9 +140,13 @@ def list_upcoming_policy_runs(params: dict | None = None, tenant: str | None = N
 
 
 @read_tool
-def list_policy_runs(params: dict | None = None, tenant: str | None = None) -> str:
-    """List policy executions grouped by policy. params supports policyId, statusIn, startTime.from/to,
-    endTime.from/to, policyName, assetId, sort, sortDirection, searchAfter, size (aka policy-logs)."""
+def list_policy_runs(params: dict | None = None, group_by: Literal["policy", "run"] = "policy", tenant: str | None = None) -> str:
+    """List policy executions. group_by="policy" (default) groups them per policy; group_by="run"
+    returns one row per individual run with its task counts (experimental: undocumented
+    endpoint). params supports policyId, statusIn, startTime.from/to, endTime.from/to,
+    policyName, assetId, sort, sortDirection, searchAfter, size (aka policy-logs)."""
+    if group_by == "run":
+        return _get("/policy-logs/grouped-by-policy-run", tenant=tenant, params=params)
     return _get("/policy-logs/grouped-by-policy", tenant=tenant, params=params)
 
 
@@ -149,3 +155,24 @@ def list_policy_run_tasks(params: dict | None = None, tenant: str | None = None)
     """List individual policy run tasks (flat, one row per asset/task). Accepts the same params
     as list_policy_runs."""
     return _get("/policy-logs/flat", tenant=tenant, params=params)
+
+
+@read_tool
+def get_policy_run_details(policy_id: str, view: Literal["status_counts", "summary", "task_output"] = "status_counts", policy_start_timestamp: int | None = None, task_id: str | None = None, tenant: str | None = None) -> str:
+    """Drill into a policy's runs. view="status_counts" returns task counts per status for the
+    policy; "summary" returns the per-asset results of one run (needs policy_start_timestamp,
+    the run's policyStartTimestamp from list_policy_runs); "task_output" returns the console
+    output of one task in that run (needs policy_start_timestamp and task_id, which is the
+    taskEntityId field from list_policy_run_tasks)."""
+    if view == "status_counts":
+        return _get(f"/policy-logs/status/counts/{seg(policy_id)}", tenant=tenant)
+    if policy_start_timestamp is None:
+        return f'ERROR: view "{view}" requires policy_start_timestamp'
+    run = f"/policy-logs/{seg(policy_id)}/{seg(policy_start_timestamp)}"
+    if view == "summary":
+        return _get(f"{run}/export/summary", tenant=tenant, params={"format": "json"})
+    if view == "task_output":
+        if not task_id:
+            return 'ERROR: view "task_output" requires task_id'
+        return _get(f"{run}/output/{seg(task_id)}", tenant=tenant)
+    return f'ERROR: view must be one of ["status_counts", "summary", "task_output"], got "{view}"'
