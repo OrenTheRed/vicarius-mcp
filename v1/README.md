@@ -2,7 +2,7 @@
 
 MCP server for the **Vicarius vRx External Data API**, the API served from your own dashboard
 subdomain (`https://<dashboard>.vicarius.cloud/vicarius-external-data-api`). It gives an AI agent
-**38 tools** (30 read-only, 5 write, 3 destructive) covering assets, CVEs, patches, events, automations and users.
+**42 tools** (32 read-only, 5 write, 5 destructive) covering assets, CVEs, patches, events, automations and users.
 
 > Installation and client setup (Claude Code, Codex; macOS, Linux, Windows) are covered in the
 > [main README](../README.md). This page is the configuration and tool reference.
@@ -16,7 +16,7 @@ when it launches the server.
 |---|---|---|
 | `VICARIUS_DASHBOARD` | Yes | Your dashboard subdomain, e.g. `acme` for `https://acme.vicarius.cloud`. A full URL such as `https://acme.vicarius.cloud/` is also accepted. |
 | `VICARIUS_API_KEY` | Yes | API key for that dashboard (in vRx: **Settings → API → Create Integration**). |
-| `VICARIUS_READ_ONLY` | No | Set to `true` to expose only the 30 read-only tools. |
+| `VICARIUS_READ_ONLY` | No | Set to `true` to expose only the 32 read-only tools. |
 
 One running server talks to one dashboard. To manage several dashboards, register the server
 several times under different names (e.g. `vicarius-acme`, `vicarius-globex`), each with its own
@@ -52,6 +52,8 @@ overwrites existing data. Every write and destructive tool is hidden when `VICAR
 | `list_asset_groups` | read | List all asset groups in the tenant. |
 | `list_asset_group_members` | read | List all assets that belong to a specific asset group (two-step: fetch group then query members). |
 | `create_asset_group` | write | Create a new asset group. |
+| `update_asset_group` | **destructive** | Update an asset group. |
+| `delete_asset_group` | **destructive** | Delete an asset group by its organizationEndpointGroupId. |
 
 ### CVEs / Vulnerabilities
 
@@ -83,6 +85,8 @@ overwrites existing data. Every write and destructive tool is hidden when `VICAR
 | Tool | Access | Description |
 |---|---|---|
 | `list_top_10` | read | List top 10 most vulnerable assets or CVEs. |
+| `count_objects` | read | Count objects without listing them - much faster than paging for totals. |
+| `group_by` | read | Group and count any object type by a field - a general version of list_top_10. |
 | `list_endpoint_tags` | read | List all endpoint tags (xtags) defined in the tenant. |
 
 ### Automations

@@ -30,6 +30,29 @@ def normalize_host(host: str | None) -> str:
     return value.lower()
 
 
+# Field names whose values are secrets. Vicarius already blanks these in its responses; this is
+# defense in depth so a backend change can never hand a stored scan credential to the agent.
+# ("secret" itself is deliberately not listed: create_api_key must return the new key once.)
+SECRET_FIELDS = frozenset({
+    "password", "privatekey", "passphrase", "accesskey", "secretkey", "secretaccesskey",
+    "organizationsecretkey", "clientsecret",
+})
+REDACTED = "<redacted>"
+MAX_TEXT_CHARS = 20_000
+
+
+def redact(value):
+    """Return a copy of a decoded JSON value with every SECRET_FIELDS value replaced."""
+    if isinstance(value, dict):
+        return {
+            k: (REDACTED if k.lower() in SECRET_FIELDS and v not in (None, "") else redact(v))
+            for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [redact(v) for v in value]
+    return value
+
+
 def seg(value: object) -> str:
     """Percent-encode a value for use as a single URL path segment, so an id like "../apiKeys"
     can't redirect a request to a different endpoint. Empty, "." and ".." are refused because
@@ -193,13 +216,22 @@ def _request(method: str, path: str, tenant: str | None, params: dict | None = N
         if not r.text:
             return json.dumps({"ok": True}, indent=2)
         content_type = r.headers.get("content-type", "")
-        if "application/json" not in content_type:
+        if "application/json" in content_type:
+            return json.dumps(redact(r.json()), indent=2)
+        if content_type.startswith("text/"):
+            # e.g. CSV report previews and task output.
+            if len(r.text) > MAX_TEXT_CHARS:
+                return r.text[:MAX_TEXT_CHARS] + f"\n\n[truncated: showing {MAX_TEXT_CHARS} of {len(r.text)} characters]"
+            return r.text
+        try:
+            # Some endpoints send JSON with a generic content type such as */*.
+            return json.dumps(redact(r.json()), indent=2)
+        except ValueError:
             return json.dumps(
                 {"contentType": content_type, "contentLength": len(r.content),
-                 "note": "Non-JSON response body not returned inline."},
+                 "note": "Binary response body not returned inline."},
                 indent=2,
             )
-        return json.dumps(r.json(), indent=2)
     except Exception as exc:
         return f"ERROR: {exc}"
 

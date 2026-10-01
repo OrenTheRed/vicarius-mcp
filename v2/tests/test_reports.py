@@ -75,3 +75,27 @@ def test_deployment_settings(vicarius_v2_env):
     result = json.loads(update_deployment_settings({"batchSizePerHour": 20}))
     assert result["batchSizePerHour"] == 20
     assert json.loads(route.calls.last.request.content) == {"batchSizePerHour": 20}
+
+
+@respx.mock
+def test_report_executions_for_one_report(vicarius_v2_env):
+    from vicarius_v2_mcp.tools_reports import get_report_execution
+    per_report = respx.get(f"{_base('acme')}/reports/r-1/executions").mock(return_value=httpx.Response(200, json=[]))
+    one = respx.get(f"{_base('acme')}/reports/r-1/executions/e-1").mock(return_value=httpx.Response(200, json={"id": "e-1"}))
+    dl = respx.get(f"{_base('acme')}/reports/r-1/executions/e-1/download").mock(return_value=httpx.Response(200, json={"downloadUrl": "https://example.com/x"}))
+    list_report_executions(report_id="r-1")
+    assert json.loads(get_report_execution("r-1", "e-1"))["id"] == "e-1"
+    assert "downloadUrl" in json.loads(get_report_execution("r-1", "e-1", download_url=True))
+    assert per_report.called and one.called and dl.called
+
+
+@respx.mock
+def test_preview_report_returns_csv_text_truncated(vicarius_v2_env):
+    from vicarius_v2_mcp.client import MAX_TEXT_CHARS
+    from vicarius_v2_mcp.tools_reports import preview_report
+    route = respx.get(f"{_base('acme')}/reports/r-1/preview").mock(
+        return_value=httpx.Response(200, text="a,b\n" * 10_000, headers={"content-type": "text/csv"}))
+    out = preview_report("r-1")
+    assert route.calls.last.request.url.params["format"] == "CSV"
+    assert out.startswith("a,b\n") and "[truncated:" in out
+    assert len(out) < MAX_TEXT_CHARS + 200

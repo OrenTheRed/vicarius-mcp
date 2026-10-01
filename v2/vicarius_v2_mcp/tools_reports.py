@@ -56,14 +56,30 @@ def generate_report(prompt: str, name: str | None = None, tenant: str | None = N
 
 
 @read_tool
-def list_report_executions(size: int | None = None, pagination_token: str | None = None, tenant: str | None = None) -> str:
-    """List report executions (runs) across all reports."""
+def list_report_executions(size: int | None = None, pagination_token: str | None = None, report_id: str | None = None, tenant: str | None = None) -> str:
+    """List report executions (runs) across all reports, or only those of report_id."""
     params = {}
     if size is not None:
         params["size"] = size
     if pagination_token:
         params["paginationToken"] = pagination_token
-    return _get("/reports/executions", tenant=tenant, params=params or None)
+    path = f"/reports/{seg(report_id)}/executions" if report_id else "/reports/executions"
+    return _get(path, tenant=tenant, params=params or None)
+
+
+@read_tool
+def get_report_execution(report_id: str, execution_id: str, download_url: bool = False, tenant: str | None = None) -> str:
+    """Get one run of a report: its status and timing. With download_url=True, returns a
+    temporary link to download the generated file instead."""
+    path = f"/reports/{seg(report_id)}/executions/{seg(execution_id)}"
+    return _get(f"{path}/download" if download_url else path, tenant=tenant)
+
+
+@read_tool
+def preview_report(report_id: str, tenant: str | None = None) -> str:
+    """Preview a report's current content as CSV text, without running or exporting it. Large
+    previews are truncated."""
+    return _get(f"/reports/{seg(report_id)}/preview", tenant=tenant, params={"format": "CSV"})
 
 
 # ---------------------------------------------------------------------------
