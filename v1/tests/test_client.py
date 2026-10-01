@@ -59,3 +59,28 @@ def test_missing_api_key(monkeypatch):
     monkeypatch.delenv("VICARIUS_API_KEY", raising=False)
     with pytest.raises(RuntimeError, match="VICARIUS_API_KEY"):
         _headers()
+
+
+@respx.mock
+def test_success_response_redacts_secret_fields(vicarius_env):
+    body = {"serverResponseObject": [{"username": "svc", "password": "hunter2", "privateKey": "KEY", "passphrase": ""}]}
+    respx.get(f"{_base()}/x").mock(return_value=httpx.Response(200, json=body))
+    item = json.loads(_get("/x"))["serverResponseObject"][0]
+    assert item == {"username": "svc", "password": "<redacted>", "privateKey": "<redacted>", "passphrase": ""}
+
+
+@respx.mock
+def test_error_body_is_redacted_and_capped(vicarius_env):
+    respx.get(f"{_base()}/x").mock(return_value=httpx.Response(400, json={"password": "hunter2", "detail": "bad"}))
+    result = _get("/x")
+    assert result.startswith("ERROR 400")
+    assert "hunter2" not in result and "<redacted>" in result
+
+    respx.get(f"{_base()}/y").mock(return_value=httpx.Response(500, text="A" * 50_000))
+    assert len(_get("/y")) < 2_300
+
+
+@respx.mock
+def test_error_body_never_echoes_api_key(vicarius_env):
+    respx.get(f"{_base()}/x").mock(return_value=httpx.Response(401, text="bad token: dummy"))
+    assert "dummy" not in _get("/x")

@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Security
+- v1 now replaces secret-named fields (`password`, `privateKey`, `passphrase`, ...) with
+  `<redacted>` in responses, as v2 already did.
+- v1 and v2 error replies are now capped at 2,000 characters. They have secret-named fields and
+  the configured API key removed.
+
 ## [1.1.0] - 2026-10-01
 
 This release adds 19 tools (15 in v2, 4 in v1) and fixes eight v1 tools that returned errors

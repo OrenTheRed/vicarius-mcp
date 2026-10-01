@@ -28,7 +28,7 @@ There is no telemetry, analytics or third-party relay.
 
 Configured API keys are never written to logs, never returned by a tool or included in an error
 message, and only sent in the request header to the configured host. Hosts must be bare
-hostnames, and every request uses `https://`. As a second line of defense, v2 also replaces the
+hostnames, and every request uses `https://`. As a second line of defense, both servers also replace the
 value of any secret-named field (`password`, `privateKey`, `passphrase`, `accessKey`,
 `organizationSecretKey`, ...) with `<redacted>` before a response reaches the agent. Vicarius
 already blanks these fields server-side; this safeguard keeps them hidden if that ever changes.

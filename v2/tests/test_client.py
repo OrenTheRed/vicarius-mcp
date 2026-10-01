@@ -66,3 +66,20 @@ def test_error_response_surfaces_as_string(vicarius_v2_env):
 def test_exception_surfaces_as_error_string(vicarius_v2_env):
     result = _get("/sites", tenant="does-not-exist")
     assert result.startswith("ERROR:")
+
+
+@respx.mock
+def test_error_body_is_redacted_and_capped(vicarius_v2_env):
+    respx.get(f"{_base('acme')}/sites").mock(return_value=httpx.Response(400, json={"password": "hunter2", "detail": "bad"}))
+    result = _get("/sites")
+    assert result.startswith("ERROR 400")
+    assert "hunter2" not in result and "<redacted>" in result
+
+    respx.get(f"{_base('acme')}/big").mock(return_value=httpx.Response(500, text="A" * 50_000))
+    assert len(_get("/big")) < 2_300
+
+
+@respx.mock
+def test_error_body_never_echoes_api_key(vicarius_v2_env):
+    respx.get(f"{_base('acme')}/sites").mock(return_value=httpx.Response(401, text="bad key: dummy-acme"))
+    assert "dummy-acme" not in _get("/sites")

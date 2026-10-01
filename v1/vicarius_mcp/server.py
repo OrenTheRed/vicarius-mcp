@@ -110,13 +110,49 @@ def _seg(value: object) -> str:
     return quote(text, safe="")
 
 
+# Field names whose values are secrets. Vicarius already blanks these in its responses; this is
+# defense in depth so a backend change can never hand a stored scan credential to the agent.
+SECRET_FIELDS = frozenset({
+    "password", "privatekey", "passphrase", "accesskey", "secretkey", "secretaccesskey",
+    "organizationsecretkey", "clientsecret",
+})
+REDACTED = "<redacted>"
+MAX_ERROR_CHARS = 2_000
+
+
+def redact(value):
+    """Return a copy of a decoded JSON value with every SECRET_FIELDS value replaced."""
+    if isinstance(value, dict):
+        return {
+            k: (REDACTED if k.lower() in SECRET_FIELDS and v not in (None, "") else redact(v))
+            for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [redact(v) for v in value]
+    return value
+
+
+def _error_text(r: httpx.Response) -> str:
+    """The error body, with secret fields and the API key removed and the length capped."""
+    try:
+        text = json.dumps(redact(r.json()))
+    except ValueError:
+        text = r.text
+    key = _api_key()
+    if key:
+        text = text.replace(key, REDACTED)
+    if len(text) > MAX_ERROR_CHARS:
+        text = text[:MAX_ERROR_CHARS] + f"... [truncated: {len(text)} characters]"
+    return text
+
+
 def _result(r: httpx.Response, empty: dict) -> str:
     if not r.is_success:
-        return f"ERROR {r.status_code}: {r.text}"
+        return f"ERROR {r.status_code}: {_error_text(r)}"
     if not r.text:
         return json.dumps(empty, indent=2)
     try:
-        return json.dumps(r.json(), indent=2)
+        return json.dumps(redact(r.json()), indent=2)
     except ValueError:
         return json.dumps({"contentType": r.headers.get("content-type", ""), "contentLength": len(r.content),
                            "note": "Non-JSON response body not returned inline."}, indent=2)

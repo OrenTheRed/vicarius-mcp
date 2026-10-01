@@ -39,6 +39,7 @@ SECRET_FIELDS = frozenset({
 })
 REDACTED = "<redacted>"
 MAX_TEXT_CHARS = 20_000
+MAX_ERROR_CHARS = 2_000
 
 
 def redact(value):
@@ -51,6 +52,19 @@ def redact(value):
     if isinstance(value, list):
         return [redact(v) for v in value]
     return value
+
+
+def error_text(r, api_key: str) -> str:
+    """The error body, with secret fields and the API key removed and the length capped."""
+    try:
+        text = json.dumps(redact(r.json()))
+    except ValueError:
+        text = r.text
+    if api_key:
+        text = text.replace(api_key, REDACTED)
+    if len(text) > MAX_ERROR_CHARS:
+        text = text[:MAX_ERROR_CHARS] + f"... [truncated: {len(text)} characters]"
+    return text
 
 
 def seg(value: object) -> str:
@@ -212,7 +226,7 @@ def _request(method: str, path: str, tenant: str | None, params: dict | None = N
                 json=body,
             )
         if not r.is_success:
-            return f"ERROR {r.status_code}: {r.text}"
+            return f"ERROR {r.status_code}: {error_text(r, api_key)}"
         if not r.text:
             return json.dumps({"ok": True}, indent=2)
         content_type = r.headers.get("content-type", "")
