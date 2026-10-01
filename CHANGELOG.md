@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-01
+
+Security hardening from a repository audit. No tools were added or removed.
+
 ### Security
 - v1 now replaces secret-named fields (`password`, `privateKey`, `passphrase`, ...) with
   `<redacted>` in responses, as v2 already did.
@@ -111,5 +115,7 @@ First public release of both servers.
 - v2: `add_configured_tenant` no longer hides tenants defined in `VICARIUS_V2_TENANTS`.
 - v1: empty (e.g. `204 No Content`) responses to POST/PUT are no longer reported as errors.
 
+[Unreleased]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/OrenTheRed/vicarius-mcp/releases/tag/v1.1.0
 [1.0.0]: https://github.com/OrenTheRed/vicarius-mcp/releases/tag/v1.0.0
