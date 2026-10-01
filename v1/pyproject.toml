@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vicarius-mcp"
+version = "1.0.0"
+description = "MCP server for the Vicarius vRx External Data API (classic dashboard API)"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "OrenTheRed" }]
+keywords = ["vicarius", "vrx", "mcp", "vulnerability-management", "claude", "codex"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp>=3.3,<4",
+    "httpx>=0.27,<1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "respx>=0.21", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+vicarius-mcp = "vicarius_mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/OrenTheRed/vicarius-mcp"
+Documentation = "https://github.com/OrenTheRed/vicarius-mcp#readme"
+Issues = "https://github.com/OrenTheRed/vicarius-mcp/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["vicarius_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
