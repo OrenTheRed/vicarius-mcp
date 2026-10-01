@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.package }} / ${{ matrix.os }} / py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [v1, v2]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.12"]
+        include:
+          - { package: v1, os: ubuntu-latest, python: "3.11" }
+          - { package: v1, os: ubuntu-latest, python: "3.13" }
+          - { package: v2, os: ubuntu-latest, python: "3.11" }
+          - { package: v2, os: ubuntu-latest, python: "3.13" }
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Put uv tool executables on PATH
+        shell: bash
+        run: echo "$(uv tool dir --bin)" >> "$GITHUB_PATH"
+      - run: uv sync --locked --extra dev
+      - run: uv run pytest -q
+      - name: Smoke test the installed CLI
+        shell: bash
+        run: |
+          uv tool install .
+          ${{ matrix.package == 'v1' && 'vicarius-mcp' || 'vicarius-v2-mcp' }} --version
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

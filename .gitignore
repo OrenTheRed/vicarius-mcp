@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Credentials - never commit these
+.env
+.env.*
+*.env
+secrets.*
+tenants.json
+!tenants.example.json
+.mcp.json
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

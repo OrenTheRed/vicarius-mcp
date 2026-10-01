@@ -1,0 +1,4 @@
+{
+  "acme": { "api_key": "<api-key-for-acme>", "host": "vicarius.cloud" },
+  "globex": { "api_key": "<api-key-for-globex>" }
+}
