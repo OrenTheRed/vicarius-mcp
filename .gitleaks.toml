@@ -1,0 +1,16 @@
+# gitleaks config: the stock rules plus the Vicarius API key, which the stock rules do not know.
+# Used by the local pre-commit hook and by the gitleaks step in .github/workflows/ci.yml.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "vicarius-api-key"
+description = "Vicarius API key assigned to VICARIUS_API_KEY or an api_key field"
+regex = '''(?i)(?:vicarius_api_key|api_key|vicarius-token)["']?\s*[:=]\s*["']?([A-Za-z0-9_\-+/=.]{16,})'''
+secretGroup = 1
+keywords = ["vicarius_api_key", "api_key", "vicarius-token"]
+
+[allowlist]
+description = "Fake keys used in tests"
+stopwords = ["super-secret-value"]

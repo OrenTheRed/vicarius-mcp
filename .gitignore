@@ -19,6 +19,9 @@ tenants.json
 !tenants.example.json
 .mcp.json
 
+# Local agent state
+.omc/
+
 # OS / editors
 .DS_Store
 Thumbs.db
