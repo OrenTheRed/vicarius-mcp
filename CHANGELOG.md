@@ -11,6 +11,8 @@ All notable changes to this project are documented here. The format follows
   `<redacted>` in responses, as v2 already did.
 - v1 and v2 error replies are now capped at 2,000 characters. They have secret-named fields and
   the configured API key removed.
+- GitHub Actions are now pinned to commit SHAs. The release workflow runs the tests first, and
+  only its release job has write access.
 
 ## [1.1.0] - 2026-10-01
 
