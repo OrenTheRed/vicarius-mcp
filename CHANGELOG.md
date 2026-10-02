@@ -6,6 +6,9 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Added a `.gitleaks.toml` with a rule for Vicarius API keys. The CI secret scan uses it. `.omc/` is now ignored.
+
 ## [1.1.1] - 2026-10-01
 
 Security hardening from a repository audit. No tools were added or removed.
