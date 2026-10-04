@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vicarius-v2-mcp"
-version = "1.2.0"
+version = "1.3.0"
 description = "MCP server for the Vicarius vRx v2 Customer API, with multi-tenant support"
 readme = "README.md"
 license = "MIT"
@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "respx>=0.21", "pytest-asyncio>=0.23"]
+dev = ["pytest>=8.0", "respx>=0.21", "pytest-asyncio>=0.23", "jsonschema>=4.0"]
 
 [project.scripts]
 vicarius-v2-mcp = "vicarius_v2_mcp.server:main"
@@ -43,3 +43,4 @@ packages = ["vicarius_v2_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]

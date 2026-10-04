@@ -27,3 +27,6 @@ tenants.json
 Thumbs.db
 .idea/
 .vscode/
+
+# Evaluation harness output
+evals_out/

@@ -41,6 +41,7 @@ You can install either server or both; they run side by side.
   - [3. Add your API key](#3-add-your-api-key)
   - [4. Connect your AI client](#4-connect-your-ai-client)
 - [Read-only mode](#read-only-mode)
+- [Local models and small context windows](#local-models-and-small-context-windows)
 - [Security](#security)
 - [Updating and uninstalling](#updating-and-uninstalling)
 - [Troubleshooting](#troubleshooting)
@@ -264,9 +265,20 @@ codex mcp add vicarius --env VICARIUS_DASHBOARD=acme --env VICARIUS_API_KEY=<api
 <details>
 <summary><b>Other MCP clients</b></summary>
 
-Both servers speak standard MCP over **stdio**. Point your client at the command `vicarius-v2-mcp`
-or `vicarius-mcp` (no arguments) and pass the environment variables described in the
-[v1](v1/README.md#configuration) / [v2](v2/README.md#configuration) references.
+Both servers speak standard MCP over **stdio**, so any MCP client can use them, with a hosted model
+or a local one. Point your client at the command `vicarius-v2-mcp` or `vicarius-mcp` (no arguments)
+and pass the environment variables described in the [v1](v1/README.md#configuration) /
+[v2](v2/README.md#configuration) references. Most clients take a config like this:
+
+```json
+{
+  "mcpServers": {
+    "vicarius-v2": { "command": "vicarius-v2-mcp", "env": { "VICARIUS_V2_TOOLSETS": "core" } }
+  }
+}
+```
+
+Running a local model? Read [Local models and small context windows](#local-models-and-small-context-windows).
 
 </details>
 
@@ -293,6 +305,32 @@ env = { VICARIUS_READ_ONLY = "true" }
 
 You can register the same server twice, once read-only and once full, and enable whichever fits
 the task.
+
+## Local models and small context windows
+
+The servers do not care which model drives them. A local model (served by Ollama, LM Studio,
+llama.cpp, oMLX, vLLM or similar, inside an MCP-capable client such as LM Studio, Open WebUI, Goose,
+Jan, Cline, Continue or AnythingLLM) can use every tool. Two things matter more for a small model
+than for a large hosted one:
+
+- **The tool list is sent with every conversation.** The full v2 list is about 15,000 to 19,000
+  tokens, more than a small context window holds, and a long list makes tool choice less reliable.
+  Set `VICARIUS_V2_TOOLSETS=core` for 16 read tools (about 3,000 tokens) that cover findings,
+  assets, sites, trends and tenants. Add whole groups when you need more, for example
+  `VICARIUS_V2_TOOLSETS=core,compliance`. See the [v2 reference](v2/README.md#smaller-tool-list).
+- **Arguments.** The v2 server accepts a JSON object written as text where a tool wants an object,
+  and the text "null" or "none" for `tenant` (which means the default tenant), because some models
+  send them that way. When an argument is wrong, the error says which one and how to fix it, so the
+  model can correct the call.
+
+Tips: give the model a context of at least 16,000 tokens (Ollama's default is small, so raise it),
+pick a model that supports tool calling, set `VICARIUS_READ_ONLY=true` unless you need changes, and
+keep your client's approval prompts on. Small models are easier to steer with text in tenant data,
+such as an asset name, than large ones.
+
+How well a model drives the tools can be measured. The harness in [`v2/evals`](v2/evals/README.md)
+scores tool choice, arguments and answers against a mocked vRx, for any server that speaks the
+OpenAI chat API.
 
 ## Security
 

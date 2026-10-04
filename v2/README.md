@@ -53,6 +53,7 @@ In practice you just say *"show critical findings for globex"* and the agent pas
 | `VICARIUS_V2_TENANTS` | | Tenants as an inline JSON string, same shape as the file. Only used when the tenants file does not exist. |
 | `VICARIUS_V2_DEFAULT_TENANT` | | Tenant used when a tool call omits `tenant`. |
 | `VICARIUS_READ_ONLY` | `false` | Set to `true` to expose only the 68 read-only tools. |
+| `VICARIUS_V2_TOOLSETS` | all tools | Offer fewer tools: `core`, group names, or a mix. See [Smaller tool list](#smaller-tool-list). |
 | `VICARIUS_V2_ALLOW_CUSTOM_HOSTS` | `false` | Allow `add_configured_tenant` to save a host outside `vicarius.cloud`. Hosts you put in the tenants file yourself are always allowed. |
 | `VICARIUS_V2_JEV` | `false` | Set to `true` to add the optional `assess_finding_urgency` tool. Needs `TYPESAFE_API_KEY` too. See [Optional: Jev urgency assessment](#optional-jev-urgency-assessment). |
 | `TYPESAFE_API_KEY` | | Your TypeSafe API key. Only used by the Jev tool. |
@@ -84,6 +85,22 @@ user profile folder.
 endpoints that the vRx web app relies on but that aren't part of the published Customer API.
 They're marked **[Experimental]** in their descriptions. Vicarius may change these endpoints
 without notice, so if one starts failing, the rest of the server is unaffected.
+
+### Smaller tool list
+
+The full tool list is sent to the model with every conversation: about 15,000 to 19,000 tokens for
+115 tools. A model with a small context window cannot hold that, and picks tools less reliably from
+a long list. `VICARIUS_V2_TOOLSETS` offers fewer tools:
+
+| Value | Tools |
+|---|---|
+| not set, or `all` | Every tool. |
+| `core` | 16 read tools for the usual questions: tenants, sites, findings (search, detail, grouped, severity, trends), asset search and detail, asset groups, distributions, risk history and patches. About 3,000 tokens. It includes `assess_finding_urgency` when Jev is on. |
+| a group name | One group of tools: `tenants`, `sites`, `assets`, `findings`, `scanning`, `patches`, `compliance`, `reports`, `scripts`, `resources`, `insights` or `jev`. Each group is one `tools_*.py` file. |
+| a mix | A comma or space separated list, for example `core,compliance` or `findings sites`. |
+
+An unknown name stops the server with a message that lists the valid ones. `VICARIUS_READ_ONLY=true`
+still applies on top: a write tool inside a chosen group stays hidden.
 
 ### Optional: Jev urgency assessment
 

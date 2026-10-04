@@ -9,10 +9,44 @@ for the people who use the servers: what was added, what changed, what was fixed
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-04
+
+Makes the v2 server work well with local models and other MCP clients, not only large hosted
+agents. Nothing changes for you unless you use the new settings.
+
+### Added
+- v2: `VICARIUS_V2_TOOLSETS` offers fewer tools. `core` is 16 read tools (about 3,000 tokens
+  against about 15,000 to 19,000 for all 115). Whole groups (`findings`, `sites`, ...) can be
+  chosen and mixed. This helps any model with a small context window, and any client that picks
+  tools less reliably from a long list. `VICARIUS_READ_ONLY` still applies on top. On the
+  evaluation harness a small local model (Qwen3-4B) made the right tool call with the right
+  arguments in all 48 runs with `core` (16 tasks that `core` is meant to serve), using 5.7 times
+  fewer prompt tokens than with all tools.
+- v2: a JSON object or array written as text is accepted where a tool wants an object or an
+  array, and the text "null" or "none" for `tenant` means the default tenant, because some models
+  and clients send arguments that way.
+- `v2/evals`: a harness that measures how well a local or hosted model drives the v2 tools. It
+  scores tool choice, arguments and answers against a mocked vRx, so changes can be measured. It is
+  a development tool and is not part of the published package.
+- README: a section on local models and small context windows, and a generic MCP client config.
+
 ### Changed
+- v2: the server instructions that MCP clients show to the model are rewritten. They now say that
+  `tenant` is optional (leave it out for the default tenant, and do not ask the user which one),
+  that a word like "tenant" in a request is not a request to list tenants, that filters go inside
+  a `params` object, and to call a tool when the request has what it needs. On the evaluation
+  harness this lifted a small local model (Qwen3-4B) from 75% to 100% correct tool calls on a
+  small tool set.
+- v2: when an argument is wrong, the error now says which one and how to fix it, for example that
+  a filter belongs inside `params`, instead of a validation dump with a link.
 - GitHub release pages now show the matching section of this changelog, instead of an automatic
   list of pull requests. The release workflow stops if the changelog has no entry for the tag or
   if the packages declare another version, and CI checks that the current version has an entry.
+
+### Upgrade notes
+- No action is needed. Every tool is still offered by default.
+- To use a local model with a small context window, set `VICARIUS_V2_TOOLSETS=core`. Add
+  `VICARIUS_READ_ONLY=true` unless you need the agent to make changes.
 
 ## [1.2.0] - 2026-10-04
 
@@ -149,7 +183,8 @@ First public release of both servers.
 - v2: `add_configured_tenant` no longer hides tenants defined in `VICARIUS_V2_TENANTS`.
 - v1: empty (e.g. `204 No Content`) responses to POST/PUT are no longer reported as errors.
 
-[Unreleased]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/OrenTheRed/vicarius-mcp/releases/tag/v1.1.0
