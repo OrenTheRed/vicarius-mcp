@@ -9,6 +9,9 @@ for the people who use the servers: what was added, what changed, what was fixed
 
 ## [Unreleased]
 
+### Changed
+- README: the example for pinning a release names the current release, v1.3.0.
+
 ## [1.3.0] - 2026-10-04
 
 Makes the v2 server work well with local models and other MCP clients, not only large hosted
