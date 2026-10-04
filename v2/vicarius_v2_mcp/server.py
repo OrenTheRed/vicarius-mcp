@@ -19,6 +19,7 @@ from . import (  # noqa: F401
     tools_scripts,
     tools_resources,
     tools_insights,
+    tools_jev,
 )
 
 # Applied at import so read-only mode holds however the server is launched.
@@ -38,6 +39,13 @@ Environment:
   VICARIUS_V2_TENANTS         Tenants as inline JSON (used only if the tenants file is absent)
   VICARIUS_V2_DEFAULT_TENANT  Tenant used when a tool call omits `tenant`
   VICARIUS_READ_ONLY          Set to "true" to expose read-only tools only
+
+Optional Jev urgency assessment (off unless both of the first two are set):
+  VICARIUS_V2_JEV             Set to "true" to add the assess_finding_urgency tool
+  TYPESAFE_API_KEY            TypeSafe API key
+  VICARIUS_V2_JEV_PRIVACY     "full" (default: machine names, IPs, CVE ids, software names are sent)
+                              or "minimal" (none of those are sent)
+  VICARIUS_V2_JEV_MODEL       Jev model alias (default: jev-latest)
 """
 
 

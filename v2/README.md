@@ -54,6 +54,11 @@ In practice you just say *"show critical findings for globex"* and the agent pas
 | `VICARIUS_V2_DEFAULT_TENANT` | | Tenant used when a tool call omits `tenant`. |
 | `VICARIUS_READ_ONLY` | `false` | Set to `true` to expose only the 68 read-only tools. |
 | `VICARIUS_V2_ALLOW_CUSTOM_HOSTS` | `false` | Allow `add_configured_tenant` to save a host outside `vicarius.cloud`. Hosts you put in the tenants file yourself are always allowed. |
+| `VICARIUS_V2_JEV` | `false` | Set to `true` to add the optional `assess_finding_urgency` tool. Needs `TYPESAFE_API_KEY` too. See [Optional: Jev urgency assessment](#optional-jev-urgency-assessment). |
+| `TYPESAFE_API_KEY` | | Your TypeSafe API key. Only used by the Jev tool. |
+| `VICARIUS_V2_JEV_PRIVACY` | `full` | `full` sends machine names, IP addresses, CVE IDs, asset groups and software names to TypeSafe. `minimal` hides all of them. |
+| `VICARIUS_V2_JEV_MODEL` | `jev-latest` | The Jev model name. Set a fixed version to keep answers stable. |
+| `VICARIUS_V2_JEV_NONPROD_PATTERN`, `VICARIUS_V2_JEV_DC_PATTERN` | built in | Regular expressions that replace the built-in rules for "non-production name" and "domain controller name". |
 
 ### Managing tenants from the agent
 
@@ -79,6 +84,59 @@ user profile folder.
 endpoints that the vRx web app relies on but that aren't part of the published Customer API.
 They're marked **[Experimental]** in their descriptions. Vicarius may change these endpoints
 without notice, so if one starts failing, the rest of the server is unaffected.
+
+### Optional: Jev urgency assessment
+
+vRx already gives every finding a severity, CVSS, EPSS, a CISA KEV flag, an exploit status and a
+risk score. [Jev](https://docs.typesafe.ai) (TypeSafe's decision model) does not redo those. It
+adds one judgment the numbers do not capture: **how urgent this finding is on this asset**. A
+critical CVE on a domain controller and the same CVE on a box named `qa-web-01` should not get the
+same answer.
+
+The tool `assess_finding_urgency(finding_id)` is **off by default and absent from the tool list**.
+To turn it on, set both `VICARIUS_V2_JEV=true` and `TYPESAFE_API_KEY`. It only reads from vRx, so
+it stays available in read-only mode. The server contacts `api.typesafe.ai` only when you call it.
+
+It returns vRx's own numbers unchanged, Jev's `disposition` (`DEFER`, `STANDARD`, `ACCELERATED`,
+`EMERGENCY` or `REVIEW`) with probabilities and a confidence value, the model version, and the exact
+facts it sent. **vRx's exploit evidence sets a ceiling:** with no CISA KEV listing, no exploit tags
+and a low or medium EPSS band, the disposition is capped at `STANDARD` in code. The output then
+shows `guard.applied: true` and Jev's original answer. A server's role cannot make a weakly
+exploitable finding urgent. The answer is advice. It changes nothing in vRx. Treat `REVIEW` or a low confidence
+as "a person decides". Call it with `preview=true` to see what would be sent without sending it.
+
+**You choose what leaves your machine** with `VICARIUS_V2_JEV_PRIVACY`:
+
+| Mode | Sent to TypeSafe |
+|---|---|
+| `full` (default) | Labels computed in code (severity, CVSS and EPSS bands, CISA KEV flag, exploit status, vRx's exploit tags such as `public`, `weaponized`, `ransomware`, a role, an environment hint and an OS family), plus the CVE ID, the machine name, IP addresses (when vRx reports them), OS, software name and version, and asset group names. **TypeSafe sees all of them.** Free text goes under `untrusted_text`. |
+| `minimal` | Only the labels computed in code. **No machine names, IP addresses, CVE IDs, asset groups or software names.** |
+
+How the labels are made, on your machine: the asset name and the names of the asset groups it
+belongs to are checked. A name that contains `qa`, `test`, `dev`, `stg`, `staging`, `uat`,
+`sandbox`, `lab` or `demo` as a separate word gives `non_production`. A name with `dc` as a
+separate word, or a group called "Domain Controllers", gives `domain_controller`. A Windows Server
+OS, or a Linux server distribution (Rocky, Red Hat, CentOS, Alma, Debian, SUSE, Oracle or Amazon
+Linux), gives `server`. Ubuntu stays `unknown`, because it is often a desktop. No match gives `none` or `unknown`, never "production". Change
+the rules with `VICARIUS_V2_JEV_NONPROD_PATTERN` and `VICARIUS_V2_JEV_DC_PATTERN`. The group names
+are used for these labels in both modes, and are only sent in `full` mode.
+
+The vRx v2 API does not say whether software is running or only installed. So "installed but not
+running" cannot be judged, and the tool does not guess. If vRx adds such a field, the code reads
+`isRunning` when it is present.
+
+Limits you should know:
+
+- Jev is new (September 2026). Its answers can change between model versions. Set
+  `VICARIUS_V2_JEV_MODEL` to a fixed version if you want stable results.
+- Jev is off until you opt in, but once it is on, `full` is the default: TypeSafe sees your machine
+  names, IP addresses and CVE IDs. Set `VICARIUS_V2_JEV_PRIVACY=minimal` to hide them. In `minimal`
+  mode Jev cannot use what it knows about a specific CVE, which can make its answers less sure.
+- Text can steer Jev. That is why `full` keeps free text under
+  `untrusted_text`, cuts it to 200 characters and removes control characters.
+- A third-party test found Jev ranked urgency well, but about as well as a simple points formula.
+  Use it as a second opinion, not as the decision.
+- Read [TypeSafe's terms](https://docs.typesafe.ai/legal.md) before you send them any tenant data.
 
 ### Pagination and filters
 
@@ -404,6 +462,12 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 | `get_distribution` | read | Get a summary breakdown for a site, the numbers behind the dashboard charts. |
 | `count_policies` | read | Count policies without listing them. |
 | `get_risk_score_history` | read | Get how the risk score of an asset or a finding changed over time, with the event behind each change. |
+
+### Urgency assessment (optional, off by default)
+
+| Tool | Access | Description |
+|---|---|---|
+| `assess_finding_urgency` | read | Judge how urgent one finding is on its own asset with TypeSafe's Jev model. Only present when `VICARIUS_V2_JEV=true` and `TYPESAFE_API_KEY` are set. Not counted in the 115 tools. |
 
 ### Trends & KPIs (experimental)
 

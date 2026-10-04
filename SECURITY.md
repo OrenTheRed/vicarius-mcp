@@ -37,6 +37,26 @@ update check, so they make no connection to PyPI. (Two tools handle keys by desi
 `create_api_key` returns the newly created secret, and `add_configured_tenant` receives a key
 from the agent.)
 
+### Optional: Jev (TypeSafe)
+
+v2 has an optional tool, `assess_finding_urgency`, that sends facts about one finding to
+`api.typesafe.ai`. It is off unless you set both `VICARIUS_V2_JEV=true` and `TYPESAFE_API_KEY`,
+and until then the server makes no connection to TypeSafe.
+
+- **You choose what leaves.** The tool is off until you opt in. Once it is on, the default is
+  `VICARIUS_V2_JEV_PRIVACY=full`: TypeSafe receives machine names, IP addresses, CVE ids, asset
+  groups and software names. `minimal` sends only labels computed in code and hides all of those.
+  `preview=true` shows the exact payload without sending it.
+- **Jev's answer is advice, with a ceiling.** With no CISA KEV listing, no exploit tags and a low
+  or medium EPSS band, the disposition is capped at `STANDARD` in code, so an asset's role cannot
+  turn a weakly exploitable finding into an urgent one.
+- **The key goes to one host.** The TypeSafe key is only sent to `api.typesafe.ai`, redirects are
+  not followed, and the key is removed from any error text.
+- **Free text can steer the model.** In `full` mode, names are cut to 200 characters, stripped of
+  control characters and placed under `untrusted_text`. The answer is advice only and changes
+  nothing in vRx.
+- **Read the provider's terms.** See https://docs.typesafe.ai/legal.md before you send tenant data.
+
 ### What the agent can do
 
 An agent connected to these servers can do anything the API key allows, including deleting

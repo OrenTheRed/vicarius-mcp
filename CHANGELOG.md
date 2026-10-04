@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-04
+
+### Added: v2 (`vicarius-v2-mcp`)
+- Optional `assess_finding_urgency` tool. It asks TypeSafe's Jev model how urgent one finding is
+  on its own asset (domain controller or non-production name, and vRx's exploit tags). vRx's own
+  numbers are returned unchanged. vRx does not report whether software is running, so that fact
+  is not judged. It is off by default and absent from the tool list until you set
+  `VICARIUS_V2_JEV=true` and `TYPESAFE_API_KEY`.
+- `VICARIUS_V2_JEV_PRIVACY` lets the operator choose what is sent: `full` (default) sends machine
+  names, IP addresses, CVE ids, asset groups and software names. `minimal` hides all of them.
+  `preview=true` shows the payload without sending it.
+- A guard in code caps Jev's disposition at `STANDARD` when vRx's exploit evidence is weak (no
+  CISA KEV listing, no exploit tags, low or medium EPSS). The output shows when it applied and
+  Jev's original answer.
+
 ### Changed
 - Added a `.gitleaks.toml` with a rule for Vicarius API keys. The CI secret scan uses it. `.omc/` is now ignored.
 
@@ -118,7 +133,8 @@ First public release of both servers.
 - v2: `add_configured_tenant` no longer hides tenants defined in `VICARIUS_V2_TENANTS`.
 - v1: empty (e.g. `204 No Content`) responses to POST/PUT are no longer reported as errors.
 
-[Unreleased]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/OrenTheRed/vicarius-mcp/releases/tag/v1.1.0
 [1.0.0]: https://github.com/OrenTheRed/vicarius-mcp/releases/tag/v1.0.0
