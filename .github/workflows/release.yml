@@ -31,6 +31,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - name: Write release notes from CHANGELOG.md
+        # Fails when the changelog has no entry for this tag, or the packages declare another version.
+        run: python3 scripts/release_notes.py "$GITHUB_REF_NAME" CHANGELOG.md --check-pyproject v1/pyproject.toml v2/pyproject.toml > release-notes.md
       - name: Build both packages
         run: |
           uv build --out-dir dist v1
@@ -38,4 +41,4 @@ jobs:
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file release-notes.md --verify-tag

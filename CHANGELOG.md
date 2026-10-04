@@ -4,9 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+The release page on GitHub shows the section of this file for that version, so write each entry
+for the people who use the servers: what was added, what changed, what was fixed.
+
 ## [Unreleased]
 
+### Changed
+- GitHub release pages now show the matching section of this changelog, instead of an automatic
+  list of pull requests. The release workflow stops if the changelog has no entry for the tag or
+  if the packages declare another version, and CI checks that the current version has an entry.
+
 ## [1.2.0] - 2026-10-04
+
+Adds an optional urgency assessment to v2. Nothing changes for you unless you turn it on.
 
 ### Added: v2 (`vicarius-v2-mcp`)
 - Optional `assess_finding_urgency` tool. It asks TypeSafe's Jev model how urgent one finding is
@@ -23,6 +33,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 - Added a `.gitleaks.toml` with a rule for Vicarius API keys. The CI secret scan uses it. `.omc/` is now ignored.
+
+### Upgrade notes
+- No action is needed. The new tool does not exist until you set `VICARIUS_V2_JEV=true` and
+  `TYPESAFE_API_KEY`.
+- If you turn it on, the default `VICARIUS_V2_JEV_PRIVACY=full` sends machine names, IP addresses,
+  CVE ids, asset groups and software names to TypeSafe. Set `minimal` to hide them.
 
 ## [1.1.1] - 2026-10-01
 
