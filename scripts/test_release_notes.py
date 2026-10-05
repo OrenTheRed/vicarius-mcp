@@ -127,6 +127,11 @@ class RealChangelogTests(unittest.TestCase):
             with self.subTest(pyproject=pyproject, version=version):
                 self.assertTrue(rn.extract(self.changelog, version))
 
+    def test_the_readme_pin_example_names_the_current_version(self):
+        version = rn.pyproject_version(ROOT / "v2/pyproject.toml")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn(f"@v{version}#subdirectory=v2", readme, "update the pinning example in README.md for this release")
+
     def test_both_packages_share_one_version(self):
         self.assertEqual(rn.pyproject_version(ROOT / "v1/pyproject.toml"), rn.pyproject_version(ROOT / "v2/pyproject.toml"))
 

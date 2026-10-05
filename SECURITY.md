@@ -47,15 +47,36 @@ and until then the server makes no connection to TypeSafe.
   `VICARIUS_V2_JEV_PRIVACY=full`: TypeSafe receives machine names, IP addresses, CVE ids, asset
   groups and software names. `minimal` sends only labels computed in code and hides all of those.
   `preview=true` shows the exact payload without sending it.
-- **Jev's answer is advice, with a ceiling.** With no CISA KEV listing, no exploit tags and a low
-  or medium EPSS band, the disposition is capped at `STANDARD` in code, so an asset's role cannot
-  turn a weakly exploitable finding into an urgent one.
+- **The answer is advice, with a ceiling and a floor.** With no CISA KEV listing, no exploit tags
+  and a low or medium EPSS band, the disposition is capped at `STANDARD` in code. A finding listed
+  in CISA KEV is never lower than `STANDARD`. So an asset's role cannot turn weak evidence into an
+  urgent finding, or strong evidence into one that is ignored. This holds for Jev and for a local
+  model.
 - **The key goes to one host.** The TypeSafe key is only sent to `api.typesafe.ai`, redirects are
   not followed, and the key is removed from any error text.
 - **Free text can steer the model.** In `full` mode, names are cut to 200 characters, stripped of
   control characters and placed under `untrusted_text`. The answer is advice only and changes
   nothing in vRx.
 - **Read the provider's terms.** See https://docs.typesafe.ai/legal.md before you send tenant data.
+
+### Optional: a local model for the urgency tool
+
+The same tool can ask a model on your own machine instead of Jev
+(`VICARIUS_V2_URGENCY_PROVIDER=local`). No data goes to TypeSafe then.
+
+- **"Local" is enforced.** `VICARIUS_V2_LLM_URL` must point at this machine: the name `localhost`,
+  or an address in `127.0.0.0/8` or `::1`. Other names, including `*.localhost`, are refused, because
+  some systems resolve them elsewhere. A server on another computer or a hosted API is refused,
+  because the facts would leave this machine. `VICARIUS_V2_LLM_ALLOW_REMOTE=true` allows it, and the
+  output then carries a warning. The same privacy switch (`VICARIUS_V2_JEV_PRIVACY`) applies.
+- **Nothing sits in the middle.** Proxy settings in the environment (`HTTP_PROXY` and the like) are
+  ignored for the model server, so the facts and the key cannot be captured by a proxy.
+- **The key, if any, goes to one host.** `VICARIUS_V2_LLM_API_KEY` is sent only to the configured
+  URL, and never over plain `http` to another machine. Redirects are not followed, a password inside
+  the URL is refused, and the key is removed from error text.
+- **A general model can be steered by text.** Asset and software names are the risk. The answer is
+  limited to five labels and checked in code, the cap and the floor still apply, `minimal` mode
+  keeps names out of the prompt, and the answer is advice only.
 
 ### What the agent can do
 

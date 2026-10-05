@@ -9,8 +9,52 @@ for the people who use the servers: what was added, what changed, what was fixed
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-05
+
+The urgency tool can now ask a model on your own machine, so no data has to go to TypeSafe. It
+stays off unless you switch it on.
+
+### Added
+- v2: `assess_finding_urgency` can use a local model instead of Jev. Set
+  `VICARIUS_V2_URGENCY_PROVIDER=local`, `VICARIUS_V2_LLM_URL` and `VICARIUS_V2_LLM_MODEL`. It works
+  with any server that speaks the OpenAI chat API (Ollama, LM Studio, llama.cpp, oMLX, vLLM). It
+  sends the same facts, `VICARIUS_V2_JEV_PRIVACY` works the same way, and the weak-evidence cap at
+  `STANDARD` still applies. The answer appears under `local` and `preview=true` shows the payload
+  under `sent_to_local_model`.
+- v2: the confidence of a local answer comes from votes. The model is asked several times
+  (`VICARIUS_V2_LLM_SAMPLES`, default 5) and the share that agree is the confidence, because many
+  local servers return no token probabilities. The output says `confidence_source: "votes"`. Votes
+  measure how consistent a model is, not a calibrated probability. Shares are out of the votes
+  asked, so an unusable or missing answer lowers the confidence.
+- v2: `VICARIUS_V2_LLM_TIMEOUT` is the time budget for all votes together (default 120 seconds). When
+  it runs out, or the server fails after some votes, the votes so far are used and the output says
+  `cut_short`.
+- v2: `VICARIUS_V2_URGENCY=true` is a neutral switch for the tool. `VICARIUS_V2_JEV=true` still works.
+- v2: a floor next to the existing cap. A finding listed in CISA KEV (exploited in the wild) is never
+  lower than `STANDARD`: a `DEFER` from the model becomes `STANDARD`. It only lifts `DEFER`, it
+  never raises anything higher, and `REVIEW` is left alone. It applies to Jev and to a local model.
+  Found when a local model deferred a strong finding on a non-production workstation.
+
 ### Changed
-- README: the example for pinning a release names the current release, v1.3.0.
+- v2: `VICARIUS_V2_URGENCY`, when it is set, wins over the older `VICARIUS_V2_JEV`, so `false` turns
+  the tool off even if an old `VICARIUS_V2_JEV=true` is still around.
+- v2: the guard now reports Jev's or the model's answer under `guard.original`, and says which rule
+  applied in `guard.kind` (`cap` or `floor`). `guard.jev_original` stays for Jev.
+- README: the example for pinning a release names the current release, and a test keeps it current.
+
+### Security
+- "Local" is enforced. The model URL must point at this machine: the name `localhost` or an
+  address in `127.0.0.0/8` or `::1`. Other names, including `*.localhost`, are refused because some
+  systems resolve them elsewhere. A server on another computer, or a hosted API, is refused unless
+  you set `VICARIUS_V2_LLM_ALLOW_REMOTE=true`, and the output then carries a warning.
+- Proxy settings (`HTTP_PROXY` and the like) are ignored for the model server, so the facts and the
+  key go straight to it. Redirects are not followed, and a password inside the URL is refused.
+- An API key is never sent over plain `http` to another machine. Use `https`, or no key.
+
+### Upgrade notes
+- No action is needed. The default provider is still Jev, and the tool is still off by default.
+- To keep your data on your machine, use a local model and set `VICARIUS_V2_JEV_PRIVACY=minimal`
+  if you also want names kept out of the prompt.
 
 ## [1.3.0] - 2026-10-04
 
@@ -186,7 +230,8 @@ First public release of both servers.
 - v2: `add_configured_tenant` no longer hides tenants defined in `VICARIUS_V2_TENANTS`.
 - v1: empty (e.g. `204 No Content`) responses to POST/PUT are no longer reported as errors.
 
-[Unreleased]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.1.0...v1.1.1

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from . import jev
+from . import jev, local_llm
 from .app import read_tool
 from .client import _get, seg
 
@@ -39,31 +39,42 @@ def _group_names(asset: dict, tenant: str | None) -> list:
 
 
 def assess_finding_urgency(finding_id: str, preview: bool = False, tenant: str | None = None) -> str:
-    """Judge how urgent one finding is on its own asset, using TypeSafe's Jev model. This adds a
-    judgment vRx's numbers do not capture (the asset's role, and a hint that its name or groups mark
-    it as non-production). It does not replace vRx's severity, CVSS, EPSS, CISA KEV, exploit status or risk
-    score, which are returned unchanged. The answer is advice: a disposition (DEFER, STANDARD,
-    ACCELERATED, EMERGENCY or REVIEW) with probabilities. Treat REVIEW or low confidence as "a
-    person must decide". Set preview=true to see exactly what would be sent to TypeSafe without
-    sending it. VICARIUS_V2_JEV_PRIVACY decides whether machine names, IP addresses, CVE ids and
-    software names are hidden from TypeSafe. With weak exploit evidence (no CISA KEV listing, no
-    exploit tags, low or medium EPSS) the disposition is capped at STANDARD, and the output says so."""
+    """Judge how urgent one finding is on its own asset, using TypeSafe's Jev model or a local model
+    (VICARIUS_V2_URGENCY_PROVIDER). This adds a judgment vRx's numbers do not capture (the asset's
+    role, and a hint that its name or groups mark it as non-production). It does not replace vRx's
+    severity, CVSS, EPSS, CISA KEV, exploit status or risk score, which are returned unchanged.
+    The answer is advice: a disposition (DEFER, STANDARD, ACCELERATED, EMERGENCY or REVIEW) with
+    probabilities. Treat REVIEW or low confidence as "a person must decide". Set preview=true to see
+    exactly what would be sent to the model without sending it. VICARIUS_V2_JEV_PRIVACY decides
+    whether machine names, IP addresses, CVE ids and software names are hidden from the model. With
+    weak exploit evidence (no CISA KEV listing, no exploit tags, low or medium EPSS) the disposition
+    is capped at STANDARD, and the output says so."""
     try:
+        chosen = jev.provider()
+        if chosen == "local":
+            local_llm.check_settings()
         mode = jev.privacy_mode()
         finding = _load(_get(f"/findings/{seg(finding_id)}", tenant=tenant))
         asset_id = jev.find_value(finding, ["assetId"])
         asset = _load(_get(f"/asset/{seg(asset_id)}", tenant=tenant)) if asset_id else {}
         state = jev.build_state(finding, asset, mode, _group_names(asset, tenant))
+        sent_key = "sent_to_typesafe" if chosen == "jev" else "sent_to_local_model"
         result = {
             "finding_id": finding_id,
+            "provider": chosen,
             "privacy_mode": mode,
             "vrx": jev.extract_vrx_numbers(finding),
-            "sent_to_typesafe": state,
+            sent_key: state,
         }
+        if chosen == "local" and local_llm.remote_warning():
+            result["warning"] = local_llm.remote_warning()
         if preview:
             result["preview_only"] = True
             return json.dumps(result, indent=2)
-        result["jev"] = jev.apply_guard(jev.summarize(jev.call_jev(state)), state["vulnerability"])
+        if chosen == "local":
+            result["local"] = jev.apply_guard(local_llm.assess(state), state["vulnerability"], "local")
+        else:
+            result["jev"] = jev.apply_guard(jev.summarize(jev.call_jev(state)), state["vulnerability"])
         result["note"] = "Advice only. It does not change anything in vRx."
         return json.dumps(result, indent=2)
     except Exception as exc:

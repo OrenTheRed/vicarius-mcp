@@ -438,7 +438,8 @@ def test_weak_evidence(vuln, weak):
 def test_guard_caps_weak_findings_and_keeps_jevs_answer(choice):
     out = jev.apply_guard(_summary(choice), WEAK_VULN)
     assert out["disposition"]["choice"] == "STANDARD"
-    assert out["guard"]["applied"] is True and out["guard"]["jev_original"] == choice
+    assert out["guard"]["applied"] is True and out["guard"]["jev_original"] == choice == out["guard"]["original"]
+    assert "Jev's own" in out["guard"]["note"]
     assert out["disposition"]["probabilities"] == {choice: 0.5}
 
 
@@ -485,3 +486,52 @@ def test_default_sends_names_ips_and_cves_and_minimal_hides_them(jev_env, monkey
     hidden = json.dumps(json.loads(assess_finding_urgency("f-1", preview=True))["sent_to_typesafe"])
     for shown in ("CORP-DC01", "CVE-2024-12345", "10.1.2.3", "Tier0 Servers", "Acme Directory Agent"):
         assert shown not in hidden
+
+
+# ---------------------------------------------------------------------------
+# The floor: a finding listed in CISA KEV is never deferred
+# ---------------------------------------------------------------------------
+
+KEV_VULN = {"in_cisa_kev": True, "exploit_signals": ["weaponized"], "epss_band": "high"}
+
+
+@pytest.mark.parametrize("vuln, strong", [
+    (KEV_VULN, True), ({"in_cisa_kev": True}, True),
+    ({"in_cisa_kev": False}, False), ({"in_cisa_kev": "unknown"}, False), ({}, False), ({"in_cisa_kev": None}, False),
+])
+def test_strong_evidence_means_listed_in_cisa_kev(vuln, strong):
+    assert jev.strong_evidence(vuln) is strong
+
+
+def test_the_floor_lifts_defer_to_standard_and_keeps_the_models_answer():
+    out = jev.apply_guard(_summary("DEFER"), KEV_VULN)
+    assert out["disposition"]["choice"] == "STANDARD"
+    guard = out["guard"]
+    assert guard["applied"] is True and guard["kind"] == "floor"
+    assert guard["original"] == guard["jev_original"] == "DEFER" and "Jev's own" in guard["note"]
+    assert out["disposition"]["probabilities"] == {"DEFER": 0.5}  # the model's own numbers are untouched
+
+
+def test_the_floor_names_the_model_for_a_local_provider():
+    guard = jev.apply_guard(_summary("DEFER"), KEV_VULN, "local")["guard"]
+    assert guard["kind"] == "floor" and guard["original"] == "DEFER"
+    assert "jev_original" not in guard and "the model's own" in guard["note"] and "Jev" not in guard["note"]
+
+
+@pytest.mark.parametrize("choice", ["STANDARD", "ACCELERATED", "EMERGENCY", "REVIEW"])
+def test_the_floor_only_lifts_defer_and_never_raises_anything_else(choice):
+    out = jev.apply_guard(_summary(choice), KEV_VULN)
+    assert out["disposition"]["choice"] == choice and out["guard"] == {"applied": False}
+
+
+@pytest.mark.parametrize("vuln", [{"in_cisa_kev": False, "epss_band": "low"}, {"in_cisa_kev": "unknown"}, {}])
+def test_the_floor_needs_a_kev_listing(vuln):
+    out = jev.apply_guard(_summary("DEFER"), vuln)
+    assert out["disposition"]["choice"] == "DEFER" and out["guard"] == {"applied": False}
+
+
+def test_the_cap_and_the_floor_never_overlap():
+    weak = {"in_cisa_kev": False, "exploit_signals": [], "epss_band": "low"}
+    assert not (jev.weak_evidence(weak) and jev.strong_evidence(weak))
+    assert not (jev.weak_evidence(KEV_VULN) and jev.strong_evidence(KEV_VULN))
+    assert jev.apply_guard(_summary("EMERGENCY"), weak)["guard"]["kind"] == "cap"

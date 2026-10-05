@@ -59,6 +59,11 @@ In practice you just say *"show critical findings for globex"* and the agent pas
 | `TYPESAFE_API_KEY` | | Your TypeSafe API key. Only used by the Jev tool. |
 | `VICARIUS_V2_JEV_PRIVACY` | `full` | `full` sends machine names, IP addresses, CVE IDs, asset groups and software names to TypeSafe. `minimal` hides all of them. |
 | `VICARIUS_V2_JEV_MODEL` | `jev-latest` | The Jev model name. Set a fixed version to keep answers stable. |
+| `VICARIUS_V2_URGENCY` | `false` | The neutral switch for the urgency tool. `true` turns it on, like `VICARIUS_V2_JEV`. |
+| `VICARIUS_V2_URGENCY_PROVIDER` | `jev` | Who scores the finding: `jev` (TypeSafe) or `local` (a model on your machine). See [Use a local model instead](#use-a-local-model-instead). |
+| `VICARIUS_V2_LLM_URL`, `VICARIUS_V2_LLM_MODEL` | | The base URL (including `/v1`) and the model name of your local server. Needed for `local`. |
+| `VICARIUS_V2_LLM_SAMPLES` | `5` | How many times the local model is asked. The share that agree is the confidence. `1` asks once and reports no confidence. |
+| `VICARIUS_V2_LLM_API_KEY`, `VICARIUS_V2_LLM_TIMEOUT`, `VICARIUS_V2_LLM_ALLOW_REMOTE` | | An optional bearer key, the time budget in seconds for all votes together (default 120), and permission to use a server that is not on this machine. |
 | `VICARIUS_V2_JEV_NONPROD_PATTERN`, `VICARIUS_V2_JEV_DC_PATTERN` | built in | Regular expressions that replace the built-in rules for "non-production name" and "domain controller name". |
 
 ### Managing tenants from the agent
@@ -116,11 +121,15 @@ it stays available in read-only mode. The server contacts `api.typesafe.ai` only
 
 It returns vRx's own numbers unchanged, Jev's `disposition` (`DEFER`, `STANDARD`, `ACCELERATED`,
 `EMERGENCY` or `REVIEW`) with probabilities and a confidence value, the model version, and the exact
-facts it sent. **vRx's exploit evidence sets a ceiling:** with no CISA KEV listing, no exploit tags
-and a low or medium EPSS band, the disposition is capped at `STANDARD` in code. The output then
-shows `guard.applied: true` and Jev's original answer. A server's role cannot make a weakly
-exploitable finding urgent. The answer is advice. It changes nothing in vRx. Treat `REVIEW` or a low confidence
-as "a person decides". Call it with `preview=true` to see what would be sent without sending it.
+facts it sent. **vRx's exploit evidence sets a ceiling and a floor**, in code, whatever the model
+says. With no CISA KEV listing, no exploit tags and a low or medium EPSS band, the disposition is
+capped at `STANDARD`. A finding listed in CISA KEV (exploited in the wild) is never lower than
+`STANDARD`: a `DEFER` becomes `STANDARD`. The output then shows `guard.applied: true`, `guard.kind`
+(`cap` or `floor`) and the model's original answer. An asset's role cannot make weak evidence urgent
+or strong evidence ignorable. The floor only lifts `DEFER`; it never raises anything higher, and it
+leaves `REVIEW` alone. The answer is advice. It changes nothing in vRx. Treat `REVIEW` or a low
+confidence as "a person decides". Call it with `preview=true` to see what would be sent without
+sending it.
 
 **You choose what leaves your machine** with `VICARIUS_V2_JEV_PRIVACY`:
 
@@ -154,6 +163,51 @@ Limits you should know:
 - A third-party test found Jev ranked urgency well, but about as well as a simple points formula.
   Use it as a second opinion, not as the decision.
 - Read [TypeSafe's terms](https://docs.typesafe.ai/legal.md) before you send them any tenant data.
+
+#### Use a local model instead
+
+`assess_finding_urgency` can ask a model on your own machine and never contact TypeSafe. It works
+with any server that speaks the OpenAI chat API: Ollama, LM Studio, llama.cpp, oMLX, vLLM.
+
+```
+VICARIUS_V2_URGENCY=true
+VICARIUS_V2_URGENCY_PROVIDER=local
+VICARIUS_V2_LLM_URL=http://127.0.0.1:11434/v1      # Ollama. LM Studio: :1234/v1, llama.cpp: :8080/v1, vLLM: :8000/v1
+VICARIUS_V2_LLM_MODEL=<the model name your server knows>
+```
+
+It sends the same facts as the Jev provider, and `VICARIUS_V2_JEV_PRIVACY` works the same way. The
+answer comes under `local` (not `jev`) and `preview=true` shows the payload under
+`sent_to_local_model`. The cap and the floor apply too, and the output reports the model's own
+answer under `guard.original`.
+
+- **Confidence comes from votes.** Many local servers return no token probabilities (Ollama's
+  OpenAI endpoint and oMLX do not). So the model is asked several times (`VICARIUS_V2_LLM_SAMPLES`,
+  default 5) and the share of answers that agree is the confidence. The output says
+  `confidence_source: "votes"`. With a tie, the more cautious answer wins, and `REVIEW` wins over
+  every other answer. Votes measure how consistent the model is, **not** a calibrated probability: a
+  model can be consistently wrong, and a small local model often agrees with itself every time. The
+  shares are out of the votes asked, so an answer that is missing or unusable lowers the confidence.
+  It costs about 2 seconds for 5 votes on a 4B model on an Apple M4 Pro. A model can be slower.
+  `VICARIUS_V2_LLM_TIMEOUT` is the budget for all votes together. When it runs out, or the server
+  fails after some votes, the votes so far are used and the output says `cut_short`.
+- **"Local" is enforced.** The URL must point at this machine: the name `localhost`, or an address
+  in `127.0.0.0/8` or `::1`. Other names, including `*.localhost`, are refused, because some systems
+  resolve them elsewhere. A server on another computer, or a hosted API, is outside this machine,
+  and the facts would leave it. That is refused unless you set `VICARIUS_V2_LLM_ALLOW_REMOTE=true`,
+  and the output then carries a warning. Proxy settings (`HTTP_PROXY` and the like) are ignored.
+  Redirects are not followed, the URL may not contain a password, and an API key is never sent
+  over plain `http` to another machine.
+- **Pick the model.** It must follow instructions and answer in JSON. A reasoning model that spends
+  its answer thinking gives no usable answers, and the tool says so. If your server does not support
+  JSON-schema output, the tool asks again in plain words and checks the answer itself.
+- **Measured.** On made-up facts, two models served by oMLX (Qwen3-4B and gemma4) both passed five
+  rules: a domain controller ranks at least as high as a server and a server as a workstation, a
+  "qa" name lowers a server, weak findings end at `STANDARD` or below, unknown facts give `REVIEW`,
+  and repeated runs agree. Their individual answers differ: gemma4 downgraded a strong finding on a
+  non-production workstation to `DEFER`, where Qwen3-4B said `STANDARD`. It is advice, so check it.
+  Small local models are easier to steer with text in tenant data than Jev is. `minimal` mode keeps
+  names out of the prompt.
 
 ### Pagination and filters
 

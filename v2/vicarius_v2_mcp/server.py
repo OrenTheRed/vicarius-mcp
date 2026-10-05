@@ -47,12 +47,17 @@ Environment:
   VICARIUS_READ_ONLY          Set to "true" to expose read-only tools only
   VICARIUS_V2_TOOLSETS        Offer fewer tools: "core", group names such as "findings,sites", or "all"
 
-Optional Jev urgency assessment (off unless both of the first two are set):
+Optional urgency assessment (off unless switched on and the chosen provider is set up):
   VICARIUS_V2_JEV             Set to "true" to add the assess_finding_urgency tool
   TYPESAFE_API_KEY            TypeSafe API key
   VICARIUS_V2_JEV_PRIVACY     "full" (default: machine names, IPs, CVE ids, software names are sent)
                               or "minimal" (none of those are sent)
   VICARIUS_V2_JEV_MODEL       Jev model alias (default: jev-latest)
+  VICARIUS_V2_URGENCY         Set to "true" to add the tool (same as VICARIUS_V2_JEV)
+  VICARIUS_V2_URGENCY_PROVIDER  "jev" (default) or "local" (a model on this machine)
+  VICARIUS_V2_LLM_URL, VICARIUS_V2_LLM_MODEL   local model server (base URL with /v1) and model name
+  VICARIUS_V2_LLM_SAMPLES     How many times to ask the local model (default 5; the agreeing share is the confidence)
+  VICARIUS_V2_LLM_TIMEOUT     Seconds for all votes together (default 120)
 """
 
 

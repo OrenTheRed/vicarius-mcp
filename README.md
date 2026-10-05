@@ -145,7 +145,7 @@ vicarius-mcp --version
 > [!TIP]
 > If you get *command not found*, run `uv tool update-shell` and open a new terminal.
 > To pin an exact release, add the tag before `#`, e.g.
-> `git+https://github.com/OrenTheRed/vicarius-mcp@v1.3.0#subdirectory=v2`.
+> `git+https://github.com/OrenTheRed/vicarius-mcp@v1.4.0#subdirectory=v2`.
 
 ### 3. Add your API key
 

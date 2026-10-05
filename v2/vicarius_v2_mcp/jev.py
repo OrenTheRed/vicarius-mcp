@@ -1,11 +1,14 @@
-"""Optional support for TypeSafe's Jev model (https://docs.typesafe.ai).
+"""Optional urgency assessment: TypeSafe's Jev model (https://docs.typesafe.ai) or a local model.
 
 vRx already scores every finding (severity, CVSS, EPSS, CISA KEV, exploit status, risk score).
-Jev does not redo that. It judges how urgent one finding is on one particular asset, using facts
-the numbers don't capture: the asset's role and whether it looks like a non-production box.
+The model does not redo that. It judges how urgent one finding is on one particular asset, using
+facts the numbers don't capture: the asset's role and whether it looks like a non-production box.
+This module holds what both providers share: the facts, the privacy modes and the guard. The
+TypeSafe client is here; the local model client is in local_llm.py.
 
-Everything here is off unless VICARIUS_V2_JEV is truthy and TYPESAFE_API_KEY is set. The operator
-chooses what leaves the machine with VICARIUS_V2_JEV_PRIVACY:
+Everything here is off unless VICARIUS_V2_URGENCY (or the older VICARIUS_V2_JEV) is truthy and the
+chosen provider is set up: a TypeSafe key for Jev, or a URL and a model name for a local model.
+The operator chooses what leaves the machine with VICARIUS_V2_JEV_PRIVACY:
 
   full (default)     Labels computed in code (severity and score bands, exploit tags, a role, an
                      environment hint, an OS family) plus the CVE id, the machine name, IP
@@ -16,7 +19,8 @@ chooses what leaves the machine with VICARIUS_V2_JEV_PRIVACY:
                      groups and software names are never sent.
 
 vRx's exploit evidence sets a ceiling. With no CISA KEV listing, no exploit tags and a low or
-medium EPSS band, the disposition is capped at STANDARD in code, whatever Jev says.
+medium EPSS band, the disposition is capped at STANDARD in code. A finding listed in CISA KEV
+is never lower than STANDARD. Whatever the model says.
 """
 
 from __future__ import annotations
@@ -62,10 +66,36 @@ class JevError(Exception):
 # ---------------------------------------------------------------------------
 
 
+PROVIDERS = ("jev", "local")
+
+
+def provider() -> str:
+    """Who scores the finding: TypeSafe's Jev (the default) or a local model."""
+    name = os.environ.get("VICARIUS_V2_URGENCY_PROVIDER", "").strip().lower() or "jev"
+    if name not in PROVIDERS:
+        raise JevError(f'VICARIUS_V2_URGENCY_PROVIDER must be "jev" or "local", not "{name}"')
+    return name
+
+
 def enabled() -> bool:
-    """True only when the operator opted in and supplied a key."""
-    opted_in = os.environ.get("VICARIUS_V2_JEV", "").strip().lower() in _TRUTHY
-    return opted_in and bool(os.environ.get("TYPESAFE_API_KEY", "").strip())
+    """True only when the operator opted in and the chosen provider is set up: a TypeSafe key for
+    Jev, or a URL and a model name for a local model. VICARIUS_V2_URGENCY turns the tool on or off;
+    when it is not set, the older VICARIUS_V2_JEV does. A bad provider name leaves the tool on, so
+    the call reports it."""
+    switch = os.environ.get("VICARIUS_V2_URGENCY", "").strip().lower()
+    # The new variable wins when it is set, so VICARIUS_V2_URGENCY=false turns the tool off even if an
+    # older VICARIUS_V2_JEV=true is still in the environment.
+    opted_in = switch in _TRUTHY if switch else os.environ.get("VICARIUS_V2_JEV", "").strip().lower() in _TRUTHY
+    if not opted_in:
+        return False
+    try:
+        chosen = provider()
+    except JevError:
+        return True
+    if chosen == "local":
+        from . import local_llm
+        return local_llm.configured()
+    return bool(os.environ.get("TYPESAFE_API_KEY", "").strip())
 
 
 def privacy_mode() -> str:
@@ -404,6 +434,7 @@ def call_jev(state: dict) -> dict:
 
 
 _CAPPED_AT = "STANDARD"
+_FLOORED_AT = "STANDARD"
 
 
 def weak_evidence(vuln: dict) -> bool:
@@ -412,20 +443,40 @@ def weak_evidence(vuln: dict) -> bool:
     return vuln.get("in_cisa_kev") is False and not vuln.get("exploit_signals") and vuln.get("epss_band") in ("low", "medium")
 
 
-def apply_guard(summary: dict, vuln: dict) -> dict:
-    """Cap the disposition at STANDARD when the exploit evidence is weak. An asset's role cannot
-    make a weakly exploitable finding urgent. Jev's own answer is kept in the output."""
+def strong_evidence(vuln: dict) -> bool:
+    """True when the finding is listed in CISA KEV: the vulnerability is exploited in the wild. An
+    unknown or missing value never counts as strong."""
+    return vuln.get("in_cisa_kev") is True
+
+
+def apply_guard(summary: dict, vuln: dict, provider: str = "jev") -> dict:
+    """Keep the model's answer inside what vRx's own exploit evidence allows. An asset's role can
+    move the answer, but it cannot make weak evidence urgent or strong evidence ignorable.
+
+      cap    weak evidence (see weak_evidence): ACCELERATED or EMERGENCY becomes STANDARD.
+      floor  listed in CISA KEV: DEFER becomes STANDARD.
+
+    The two cannot both apply (the cap needs "not in KEV"). REVIEW is never changed. The model's own
+    answer is kept in the output, under `original` (and under `jev_original` for Jev, which older
+    consumers read)."""
     choice = summary["disposition"]["choice"]
     if weak_evidence(vuln) and choice in ("ACCELERATED", "EMERGENCY"):
-        summary["guard"] = {
-            "applied": True,
-            "rule": "No CISA KEV listing, no exploit tags and a low or medium EPSS band: capped at STANDARD.",
-            "jev_original": choice,
-            "note": "The probabilities and confidence are Jev's own, from before the cap.",
-        }
-        summary["disposition"] = {**summary["disposition"], "choice": _CAPPED_AT}
+        kind, rule, new = "cap", "No CISA KEV listing, no exploit tags and a low or medium EPSS band: capped at STANDARD.", _CAPPED_AT
+    elif strong_evidence(vuln) and choice == "DEFER":
+        kind, rule, new = "floor", "Listed in CISA KEV (exploited in the wild): never lower than STANDARD.", _FLOORED_AT
     else:
         summary["guard"] = {"applied": False}
+        return summary
+    summary["guard"] = {
+        "applied": True,
+        "kind": kind,
+        "rule": rule,
+        "original": choice,
+        "note": f"The probabilities and confidence are {'Jev' if provider == 'jev' else 'the model'}'s own, from before the {kind}.",
+    }
+    if provider == "jev":
+        summary["guard"]["jev_original"] = choice
+    summary["disposition"] = {**summary["disposition"], "choice": new}
     return summary
 
 
