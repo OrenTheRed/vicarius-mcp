@@ -43,7 +43,8 @@ def list_patch_groups(params: dict | None = None, tenant: str | None = None) -> 
 def list_patch_group_patches(patch_group_id: str, params: dict | None = None, tenant: str | None = None) -> str:
     """List the patches inside one patch group, with how many assets and CVEs each patch affects
     (patchIdentifier, patchType, patchVersion, releaseDate, assetCount, cveCount). patch_group_id comes
-    from list_patch_groups. params is optional paging: size, searchAfter."""
+    from list_patch_groups. params is optional paging: size (up to 200; larger is refused) and from
+    (the offset of the first row). searchAfter is not used here."""
     return _get(f"/patchGroups/{seg(patch_group_id)}/patches/view", tenant=tenant, params=params)
 
 

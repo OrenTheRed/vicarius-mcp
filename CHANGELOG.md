@@ -26,7 +26,14 @@ not cover. All four were run against a live tenant.
   asset and finding counts.
 - v2: `list_software_versions` lists the installed versions of one software product, with asset and
   finding counts per version.
-- v2 now has 119 tools, 72 of them read-only. `core` is unchanged.
+- v2 now has 119 tools, 72 of them read-only. `core` is unchanged. The full tool list now costs
+  about 16,000 to 20,000 tokens, depending on the model's tokenizer.
+- The two group views page with `size` and `from` (not `searchAfter`). Patch groups accept a
+  `size` of up to 200 and refuse 500. The vTag list is not paged.
+
+### Unchanged
+- v1 (`vicarius-mcp`) has no changes in this release. It is published at 1.5.0 because both
+  packages share one version number.
 
 ### Upgrade notes
 - No action is needed. The new tools are read-only, so `VICARIUS_READ_ONLY=true` keeps them.

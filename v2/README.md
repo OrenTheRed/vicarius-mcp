@@ -93,7 +93,7 @@ without notice, so if one starts failing, the rest of the server is unaffected.
 
 ### Smaller tool list
 
-The full tool list is sent to the model with every conversation: about 15,000 to 19,000 tokens for
+The full tool list is sent to the model with every conversation: about 16,000 to 20,000 tokens for
 119 tools. A model with a small context window cannot hold that, and picks tools less reliably from
 a long list. `VICARIUS_V2_TOOLSETS` offers fewer tools:
 

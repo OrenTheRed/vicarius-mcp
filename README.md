@@ -313,7 +313,7 @@ llama.cpp, oMLX, vLLM or similar, inside an MCP-capable client such as LM Studio
 Jan, Cline, Continue or AnythingLLM) can use every tool. Two things matter more for a small model
 than for a large hosted one:
 
-- **The tool list is sent with every conversation.** The full v2 list is about 15,000 to 19,000
+- **The tool list is sent with every conversation.** The full v2 list is about 16,000 to 20,000
   tokens, more than a small context window holds, and a long list makes tool choice less reliable.
   Set `VICARIUS_V2_TOOLSETS=core` for 16 read tools (about 3,000 tokens) that cover findings,
   assets, sites, trends and tenants. Add whole groups when you need more, for example

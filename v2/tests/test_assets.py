@@ -87,6 +87,9 @@ def test_list_software_versions(vicarius_v2_env):
     respx.get(f"{_base('acme')}/software/p-1/versions").mock(
         return_value=httpx.Response(200, json=[{"version": "153.0", "assetsCount": 2, "findingsCount": 5}]))
     assert json.loads(list_software_versions("p-1"))[0]["version"] == "153.0"
+    route = respx.get(f"{_base('acme')}/software/p-2/versions").mock(return_value=httpx.Response(200, json=[]))
+    list_software_versions("p-2", params={"size": 3})
+    assert "size=3" in str(route.calls.last.request.url)
 
 
 @respx.mock

@@ -84,11 +84,12 @@ def get_software(product_id: str, publisher_id: str | None = None, tenant: str |
 
 
 @read_tool
-def list_software_versions(product_id: str, tenant: str | None = None) -> str:
+def list_software_versions(product_id: str, params: dict | None = None, tenant: str | None = None) -> str:
     """List the versions of one software product that are installed, with how many assets run each
     version and how many findings it has (version, assetsCount, findingsCount, lastSeen). product_id
-    is the id of the product in search_software."""
-    return _get(f"/software/{seg(product_id)}/versions", tenant=tenant)
+    is the productId of a row in search_software. params is optional paging: size. Offsets (from,
+    searchAfter) were not tested for this endpoint."""
+    return _get(f"/software/{seg(product_id)}/versions", tenant=tenant, params=params)
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +108,8 @@ def list_software_groups(params: dict | None = None, tenant: str | None = None) 
 def list_software_group_software(software_group_id: str, params: dict | None = None, tenant: str | None = None) -> str:
     """List the software products inside one software group, with how many assets run each and how
     many findings it has (productName, publisherName, type, assetCount, findingCount).
-    software_group_id comes from list_software_groups. params is optional paging: size, searchAfter."""
+    software_group_id comes from list_software_groups. params is optional paging: size and from (the
+    offset of the first row). searchAfter is not used here."""
     return _get(f"/softwareGroups/{seg(software_group_id)}/software/view", tenant=tenant, params=params)
 
 

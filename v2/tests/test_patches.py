@@ -77,8 +77,9 @@ def test_list_patch_group_patches_encodes_the_id_and_passes_paging(vicarius_v2_e
     from vicarius_v2_mcp.tools_patches import list_patch_group_patches
     route = respx.get(f"{_base('acme')}/patchGroups/pg%2F1/patches/view").mock(
         return_value=httpx.Response(200, json=[{"patchIdentifier": "KB1", "assetCount": 3, "cveCount": 9}]))
-    out = json.loads(list_patch_group_patches("pg/1", params={"size": 5}))
-    assert out[0]["patchIdentifier"] == "KB1" and "size=5" in str(route.calls.last.request.url)
+    out = json.loads(list_patch_group_patches("pg/1", params={"size": 5, "from": 10}))
+    url = str(route.calls.last.request.url)
+    assert out[0]["patchIdentifier"] == "KB1" and "size=5" in url and "from=10" in url
 
 
 def test_list_patch_group_patches_rejects_a_path_trick(vicarius_v2_env):
