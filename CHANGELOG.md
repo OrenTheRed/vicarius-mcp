@@ -9,6 +9,36 @@ for the people who use the servers: what was added, what changed, what was fixed
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-06
+
+Four new read-only tools for v2, found by checking the vRx API for endpoints that the tools did
+not cover. All four were run against a live tenant.
+
+### Added
+- v2: `list_risk_tags` lists the vTags (risk tags) that feed a finding's risk score. Each has a code
+  such as `exploit.ransomware`, a name, an explanation, a category (`EXPLOIT` or `INTELLIGENCE`),
+  the platform default weight, the effective weight, and whether an admin changed it. A finding's
+  own vTags were already in `get_finding`. There is no tool to change a weight: that needs an API
+  key that is allowed to write vTags, and it re-scores findings.
+- v2: `list_patch_group_patches` lists the patches inside a patch group, with the number of assets
+  and CVEs each affects.
+- v2: `list_software_group_software` lists the software products inside a software group, with
+  asset and finding counts.
+- v2: `list_software_versions` lists the installed versions of one software product, with asset and
+  finding counts per version.
+- v2 now has 119 tools, 72 of them read-only. `core` is unchanged. The full tool list now costs
+  about 16,000 to 20,000 tokens, depending on the model's tokenizer.
+- The two group views page with `size` and `from` (not `searchAfter`). Patch groups accept a
+  `size` of up to 200 and refuse 500. The vTag list is not paged.
+
+### Unchanged
+- v1 (`vicarius-mcp`) has no changes in this release. It is published at 1.5.0 because both
+  packages share one version number.
+
+### Upgrade notes
+- No action is needed. The new tools are read-only, so `VICARIUS_READ_ONLY=true` keeps them.
+  They are in the `findings`, `patches` and `assets` toolsets.
+
 ## [1.4.0] - 2026-10-05
 
 The urgency tool can now ask a model on your own machine, so no data has to go to TypeSafe. It
@@ -230,7 +260,8 @@ First public release of both servers.
 - v2: `add_configured_tenant` no longer hides tenants defined in `VICARIUS_V2_TENANTS`.
 - v1: empty (e.g. `204 No Content`) responses to POST/PUT are no longer reported as errors.
 
-[Unreleased]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/OrenTheRed/vicarius-mcp/compare/v1.1.1...v1.2.0

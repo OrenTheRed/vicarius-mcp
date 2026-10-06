@@ -42,6 +42,16 @@ def findings_severity_distribution(site_id: str, asset_id: str | None = None, pr
     return _get("/findings/severity-distribution", tenant=tenant, params=params)
 
 
+@read_tool
+def list_risk_tags(tenant: str | None = None) -> str:
+    """List the vTags (risk tags) that feed a finding's risk score: each has a tagCode (such as
+    exploit.ransomware), a displayName, an explanation, a category (EXPLOIT or INTELLIGENCE), the
+    platformDefaultWeight and the effectiveWeight, and whether an admin changed it (overridden).
+    A finding's own tags are in the riskTags of get_finding. The whole catalogue (about 20 tags) comes back
+    in one reply; it is not paged and takes no filters. This tool only reads: it cannot change a weight."""
+    return _get("/v2/risk-tags", tenant=tenant)
+
+
 # ---------------------------------------------------------------------------
 # Vulnerability Exclusion Rules
 # ---------------------------------------------------------------------------

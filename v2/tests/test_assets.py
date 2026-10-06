@@ -79,3 +79,31 @@ def test_software_groups_crud(vicarius_v2_env):
     assert json.loads(create_software_group({"name": "Browsers"}))["id"] == "sg-2"
     assert json.loads(update_software_group("sg-1", {"name": "Browsers"}))["id"] == "sg-1"
     assert json.loads(delete_software_group("sg-1")) is True
+
+
+@respx.mock
+def test_list_software_versions(vicarius_v2_env):
+    from vicarius_v2_mcp.tools_assets import list_software_versions
+    respx.get(f"{_base('acme')}/software/p-1/versions").mock(
+        return_value=httpx.Response(200, json=[{"version": "153.0", "assetsCount": 2, "findingsCount": 5}]))
+    assert json.loads(list_software_versions("p-1"))[0]["version"] == "153.0"
+    route = respx.get(f"{_base('acme')}/software/p-2/versions").mock(return_value=httpx.Response(200, json=[]))
+    list_software_versions("p-2", params={"size": 3})
+    assert "size=3" in str(route.calls.last.request.url)
+
+
+@respx.mock
+def test_list_software_group_software(vicarius_v2_env):
+    from vicarius_v2_mcp.tools_assets import list_software_group_software
+    route = respx.get(f"{_base('acme')}/softwareGroups/sg-1/software/view").mock(
+        return_value=httpx.Response(200, json=[{"productName": "Firefox", "assetCount": 4, "findingCount": 7}]))
+    out = json.loads(list_software_group_software("sg-1", params={"size": 2}))
+    assert out[0]["productName"] == "Firefox" and "size=2" in str(route.calls.last.request.url)
+
+
+def test_the_new_software_tools_reject_a_path_trick(vicarius_v2_env):
+    import pytest
+    from vicarius_v2_mcp.tools_assets import list_software_group_software, list_software_versions
+    for call in (lambda: list_software_versions(".."), lambda: list_software_group_software("")):
+        with pytest.raises(ValueError):
+            call()

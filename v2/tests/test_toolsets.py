@@ -110,3 +110,71 @@ def test_a_bad_toolset_ends_startup_with_one_clear_line_and_no_traceback():
     out = subprocess.run([sys.executable, "-c", "import vicarius_v2_mcp.server"], capture_output=True, text=True, env=env)
     assert out.returncode != 0 and "Traceback" not in out.stderr
     assert out.stderr.strip().startswith("vicarius-v2-mcp: Unknown toolset") and "findings" in out.stderr
+
+
+def test_the_new_read_tools_are_read_only_and_in_the_right_groups():
+    by_name = {t.name: t for t in tools_in_process()}
+    expected = {"list_risk_tags": "findings", "list_patch_group_patches": "patches",
+                "list_software_group_software": "assets", "list_software_versions": "assets"}
+    for name, group in expected.items():
+        assert by_name[name].annotations.readOnlyHint is True, name
+        assert GROUP_OF[name] == group, name
+        assert name not in CORE, name  # core stays a small set of the usual questions
+
+
+# ---------------------------------------------------------------------------
+# The new read tools: tenant routing and error replies, and the counts the docs state
+# ---------------------------------------------------------------------------
+
+NEW_READ_TOOLS = [
+    ("list_risk_tags", {}, "/v2/risk-tags"),
+    ("list_patch_group_patches", {"patch_group_id": "pg-1"}, "/patchGroups/pg-1/patches/view"),
+    ("list_software_group_software", {"software_group_id": "sg-1"}, "/softwareGroups/sg-1/software/view"),
+    ("list_software_versions", {"product_id": "p-1"}, "/software/p-1/versions"),
+]
+
+
+@pytest.mark.parametrize("name, args, path", NEW_READ_TOOLS)
+def test_new_read_tools_use_the_chosen_tenant_and_surface_errors(vicarius_v2_env, name, args, path):
+    import httpx
+    import respx
+    from fastmcp import Client
+    from vicarius_v2_mcp.client import _base
+
+    async def call(**extra):
+        async with Client(mcp) as client:
+            return (await client.call_tool(name, {**args, **extra}, raise_on_error=False)).content[0].text
+
+    with respx.mock(assert_all_called=False) as router:
+        acme = router.get(f"{_base('acme')}{path}").mock(return_value=httpx.Response(200, json=[]))
+        beta = router.get(f"{_base('beta')}{path}").mock(return_value=httpx.Response(200, json=[{"ok": 1}]))
+        asyncio.run(call())                       # the default tenant
+        asyncio.run(call(tenant="beta"))          # an explicit tenant
+        assert acme.call_count == 1 and beta.call_count == 1
+        beta.mock(return_value=httpx.Response(403, text="Forbidden"))
+        assert asyncio.run(call(tenant="beta")).startswith("ERROR 403")   # a key without permission is reported
+        beta.mock(return_value=httpx.Response(404, json={"error": "not found"}))
+        assert asyncio.run(call(tenant="beta")).startswith("ERROR 404")
+
+
+def test_the_tool_counts_in_the_docs_match_the_tools():
+    import re
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent.parent
+    tools = tools_in_process()
+    total = len(tools)
+    read_only = sum(1 for t in tools if t.annotations.readOnlyHint)
+    destructive = sum(1 for t in tools if t.annotations.destructiveHint)
+    write = total - read_only - destructive
+
+    v2 = (root / "v2/README.md").read_text(encoding="utf-8")
+    assert f"**{total} tools** ({read_only} read-only, {write} write, {destructive} destructive)" in v2
+    assert f"expose only the {read_only} read-only tools" in v2
+    assert f"{total} tools. A model with a small context window" in v2
+
+    top = (root / "README.md").read_text(encoding="utf-8")
+    v1_total = int(re.search(r"\]\(v1/README\.md\)\s*\|[^|]*\|\s*(\d+)\s*\|", top).group(1))
+    assert re.search(rf"\]\(v2/README\.md\)\s*\|[^|]*\|\s*{total}\s*\|", top)
+    assert f"**{total + v1_total} tools** across both servers" in top
+    assert f"{read_only} of {total} for v2" in top
+    assert f"multi-tenant ({total} tools)" in top
