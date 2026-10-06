@@ -1,7 +1,7 @@
 # vicarius-v2-mcp (v2): vRx v2 Customer API
 
 MCP server for the **Vicarius vRx v2 Customer API** (`https://vicarius.cloud/api`). It gives an AI
-agent **115 tools** (68 read-only, 21 write, 26 destructive) covering sites, assets, software,
+agent **119 tools** (72 read-only, 21 write, 26 destructive) covering sites, assets, software,
 vulnerability findings, scan/patch/script policies, CIS compliance, reports, credentials, users
 and API keys. One running server can manage **any number of tenants**.
 
@@ -52,7 +52,7 @@ In practice you just say *"show critical findings for globex"* and the agent pas
 | `VICARIUS_V2_TENANTS_FILE` | see table above | Path to the tenants file. |
 | `VICARIUS_V2_TENANTS` | | Tenants as an inline JSON string, same shape as the file. Only used when the tenants file does not exist. |
 | `VICARIUS_V2_DEFAULT_TENANT` | | Tenant used when a tool call omits `tenant`. |
-| `VICARIUS_READ_ONLY` | `false` | Set to `true` to expose only the 68 read-only tools. |
+| `VICARIUS_READ_ONLY` | `false` | Set to `true` to expose only the 72 read-only tools. |
 | `VICARIUS_V2_TOOLSETS` | all tools | Offer fewer tools: `core`, group names, or a mix. See [Smaller tool list](#smaller-tool-list). |
 | `VICARIUS_V2_ALLOW_CUSTOM_HOSTS` | `false` | Allow `add_configured_tenant` to save a host outside `vicarius.cloud`. Hosts you put in the tenants file yourself are always allowed. |
 | `VICARIUS_V2_JEV` | `false` | Set to `true` to add the optional `assess_finding_urgency` tool. Needs `TYPESAFE_API_KEY` too. See [Optional: Jev urgency assessment](#optional-jev-urgency-assessment). |
@@ -94,7 +94,7 @@ without notice, so if one starts failing, the rest of the server is unaffected.
 ### Smaller tool list
 
 The full tool list is sent to the model with every conversation: about 15,000 to 19,000 tokens for
-115 tools. A model with a small context window cannot hold that, and picks tools less reliably from
+119 tools. A model with a small context window cannot hold that, and picks tools less reliably from
 a long list. `VICARIUS_V2_TOOLSETS` offers fewer tools:
 
 | Value | Tools |
@@ -326,12 +326,14 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 |---|---|---|
 | `search_software` | read | Search the software inventory. |
 | `get_software` | read | Get details for a single software product by its productId. |
+| `list_software_versions` | read | List the installed versions of one software product, with asset and finding counts per version. |
 
 ### Software Groups
 
 | Tool | Access | Description |
 |---|---|---|
 | `list_software_groups` | read | List/search software groups. |
+| `list_software_group_software` | read | List the software products inside one software group, with asset and finding counts. |
 | `create_software_group` | write | Create a software group. |
 | `update_software_group` | **destructive** | Update a software group by id. |
 | `delete_software_group` | **destructive** | Delete a software group by its id. |
@@ -344,6 +346,13 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 | `get_finding` | read | Get full details for a single finding by its id. |
 | `findings_grouped_by_vulnerability` | read | Search findings grouped by the underlying vulnerability/CVE, deduping across assets. |
 | `findings_severity_distribution` | read | Get active finding counts bucketed by severity for a site. |
+| `list_risk_tags` | read | List the vTags (risk tags) that feed a finding's risk score, with their weights and whether an admin changed them. |
+
+**vTags.** A vTag is a risk tag, a reason attached to a finding that feeds its risk score, such as
+`exploit.ransomware` ("Exploited by Ransomware") or `intel.actor-country.ir`. A finding's own vTags are in the
+`riskTags` of `get_finding`. In the vRx web app an admin can change a vTag's weight (a multiplier on the
+platform default of 1.0); this server only reads them. Changing a weight needs an API key that is allowed to
+write vTags, and it re-scores findings, so there is no tool for it yet.
 
 ### Vulnerability Exclusion Rules
 
@@ -416,6 +425,7 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 | Tool | Access | Description |
 |---|---|---|
 | `list_patch_groups` | read | List/search patch groups. |
+| `list_patch_group_patches` | read | List the patches inside one patch group, with asset and CVE counts. |
 | `create_patch_group` | write | Create a patch group. |
 | `update_patch_group` | **destructive** | Update a patch group by id. |
 | `delete_patch_group` | **destructive** | Delete a patch group by its id. |
@@ -538,7 +548,7 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 
 | Tool | Access | Description |
 |---|---|---|
-| `assess_finding_urgency` | read | Judge how urgent one finding is on its own asset with TypeSafe's Jev model. Only present when `VICARIUS_V2_JEV=true` and `TYPESAFE_API_KEY` are set. Not counted in the 115 tools. |
+| `assess_finding_urgency` | read | Judge how urgent one finding is on its own asset with TypeSafe's Jev model. Only present when `VICARIUS_V2_JEV=true` and `TYPESAFE_API_KEY` are set. Not counted in the 119 tools. |
 
 ### Trends & KPIs (experimental)
 

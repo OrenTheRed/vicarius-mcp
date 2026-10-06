@@ -70,3 +70,19 @@ def test_asset_inactivity_settings(vicarius_v2_env):
     result = json.loads(update_asset_inactivity_settings(60))
     assert result["assetAutoRemovalDays"] == 60
     assert json.loads(route.calls.last.request.content) == {"assetAutoRemovalDays": 60}
+
+
+@respx.mock
+def test_list_patch_group_patches_encodes_the_id_and_passes_paging(vicarius_v2_env):
+    from vicarius_v2_mcp.tools_patches import list_patch_group_patches
+    route = respx.get(f"{_base('acme')}/patchGroups/pg%2F1/patches/view").mock(
+        return_value=httpx.Response(200, json=[{"patchIdentifier": "KB1", "assetCount": 3, "cveCount": 9}]))
+    out = json.loads(list_patch_group_patches("pg/1", params={"size": 5}))
+    assert out[0]["patchIdentifier"] == "KB1" and "size=5" in str(route.calls.last.request.url)
+
+
+def test_list_patch_group_patches_rejects_a_path_trick(vicarius_v2_env):
+    import pytest
+    from vicarius_v2_mcp.tools_patches import list_patch_group_patches
+    with pytest.raises(ValueError):
+        list_patch_group_patches("..")

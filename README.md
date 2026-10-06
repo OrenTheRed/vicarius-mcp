@@ -24,7 +24,7 @@ send no telemetry anywhere else.
 
 | Server | Vicarius API | Tools | Best for |
 |---|---|---|---|
-| [**`vicarius-v2-mcp`**](v2/README.md) | vRx v2 Customer API (`vicarius.cloud/api`) | 115 | Sites, findings, trends and KPIs, scan/patch/script policies, CIS compliance, reports, users. Manages **multiple tenants** from one server. |
+| [**`vicarius-v2-mcp`**](v2/README.md) | vRx v2 Customer API (`vicarius.cloud/api`) | 119 | Sites, findings, trends and KPIs, scan/patch/script policies, CIS compliance, reports, users. Manages **multiple tenants** from one server. |
 | [**`vicarius-mcp`**](v1/README.md) | vRx External Data API (`<dashboard>.vicarius.cloud`) | 42 | Assets, CVEs, patches, events, automations and users on a classic vRx dashboard. |
 
 You can install either server or both; they run side by side.
@@ -50,7 +50,7 @@ You can install either server or both; they run side by side.
 
 ## Features
 
-- **157 tools** across both servers, each a thin wrapper around the Vicarius API.
+- **161 tools** across both servers, each a thin wrapper around the Vicarius API.
 - **Insights, not just records.** Dashboard KPIs, breakdowns by OS, severity and status, risk-score
   history, and finding trends with mean time to remediate (MTTR).
 - **Read-only mode.** Set `VICARIUS_READ_ONLY=true` and every tool that can change anything is
@@ -145,7 +145,7 @@ vicarius-mcp --version
 > [!TIP]
 > If you get *command not found*, run `uv tool update-shell` and open a new terminal.
 > To pin an exact release, add the tag before `#`, e.g.
-> `git+https://github.com/OrenTheRed/vicarius-mcp@v1.4.0#subdirectory=v2`.
+> `git+https://github.com/OrenTheRed/vicarius-mcp@v1.5.0#subdirectory=v2`.
 
 ### 3. Add your API key
 
@@ -288,7 +288,7 @@ critical findings."*
 ## Read-only mode
 
 To give an agent visibility without the ability to change anything, set `VICARIUS_READ_ONLY=true`.
-The server then registers only its read tools: 68 of 115 for v2, 32 of 42 for v1. The write tools
+The server then registers only its read tools: 72 of 119 for v2, 32 of 42 for v1. The write tools
 aren't just blocked; they no longer exist from the agent's point of view.
 
 ```bash
@@ -393,7 +393,7 @@ local changes in a client, install from your checkout with `uv tool install --fo
 ```
 .
 ├── v1/          vicarius-mcp: vRx External Data API (42 tools)
-├── v2/          vicarius-v2-mcp: vRx v2 Customer API, multi-tenant (115 tools)
+├── v2/          vicarius-v2-mcp: vRx v2 Customer API, multi-tenant (119 tools)
 ├── SECURITY.md
 ├── CHANGELOG.md
 └── LICENSE

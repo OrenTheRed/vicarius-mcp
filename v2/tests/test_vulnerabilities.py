@@ -63,3 +63,11 @@ def test_general_exclusion_rules(vicarius_v2_env):
     respx.delete(f"{_base('acme')}/exclusionRules/r-2").mock(return_value=httpx.Response(200, json=True))
     assert json.loads(list_exclusion_rules())[0]["id"] == "r-2"
     assert json.loads(delete_exclusion_rule("r-2")) is True
+
+
+@respx.mock
+def test_list_risk_tags(vicarius_v2_env):
+    tags = [{"tagCode": "exploit.ransomware", "category": "EXPLOIT", "platformDefaultWeight": 1.0, "effectiveWeight": 1.0, "overridden": False}]
+    route = respx.get(f"{_base('acme')}/v2/risk-tags").mock(return_value=httpx.Response(200, json=tags))
+    from vicarius_v2_mcp.tools_vulnerabilities import list_risk_tags
+    assert json.loads(list_risk_tags())[0]["tagCode"] == "exploit.ransomware" and route.call_count == 1

@@ -110,3 +110,13 @@ def test_a_bad_toolset_ends_startup_with_one_clear_line_and_no_traceback():
     out = subprocess.run([sys.executable, "-c", "import vicarius_v2_mcp.server"], capture_output=True, text=True, env=env)
     assert out.returncode != 0 and "Traceback" not in out.stderr
     assert out.stderr.strip().startswith("vicarius-v2-mcp: Unknown toolset") and "findings" in out.stderr
+
+
+def test_the_new_read_tools_are_read_only_and_in_the_right_groups():
+    by_name = {t.name: t for t in tools_in_process()}
+    expected = {"list_risk_tags": "findings", "list_patch_group_patches": "patches",
+                "list_software_group_software": "assets", "list_software_versions": "assets"}
+    for name, group in expected.items():
+        assert by_name[name].annotations.readOnlyHint is True, name
+        assert GROUP_OF[name] == group, name
+        assert name not in CORE, name  # core stays a small set of the usual questions
