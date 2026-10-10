@@ -36,6 +36,12 @@ def get_scan_profile(profile_id: str, tenant: str | None = None) -> str:
     return _get(f"/scanProfile/{seg(profile_id)}", tenant=tenant)
 
 
+@read_tool
+def list_scan_profile_options(kind: Literal["categories", "perspectives"] = "categories", tenant: str | None = None) -> str:
+    """List the scan profile categories or perspectives that search_scan_profiles filters on."""
+    return _get(f"/scanProfile/{kind}", tenant=tenant)
+
+
 # ---------------------------------------------------------------------------
 # Scan Policies
 # ---------------------------------------------------------------------------

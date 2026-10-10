@@ -9,6 +9,50 @@ for the people who use the servers: what was added, what changed, what was fixed
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-10
+
+Ten new read-only tools for v2. They come from a second endpoint check, which compared the routes
+the vRx web app calls with the routes the tools use. All ten were run against a live tenant.
+
+### Added
+- v2: patchless protection (vShield), which had no tools before. `get_finding_patchless_protection`
+  shows, for one finding, whether it can be protected and in which modes (`MONITOR`,
+  `MONITOR_AND_PREVENT`), the protections that cover it, or the other findings one protection would
+  also cover. `search_patchless_protections`, `count_patchless_protections` and
+  `list_patchless_protection_events` list, count and follow protections. They are in the `findings`
+  toolset.
+- v2: `search_available_patches_grouped` lists pending patches with one row per patch instead of one
+  row per asset, with the asset count, the CVEs the patch fixes, and the affected software.
+- v2: `get_software_version` gets one installed version of a product, with asset and finding counts.
+- v2: `search_patches_for_static_group` and `search_software_for_static_group` find the patches and
+  the software to put in a STATIC group.
+- v2: `get_my_access` shows who the API key acts as, its current site, and its permissions there.
+  Use it to explain an `ERROR 403`.
+- v2: `list_scan_profile_options` lists the scan profile categories and perspectives that
+  `search_scan_profiles` filters on.
+
+### Changed
+- v2 now has 129 tools, 82 of them read-only. `core` is unchanged. The full tool list now costs
+  about 17,000 to 22,000 tokens. The size limit in the tests went from 58,000 to 64,000 characters;
+  the list now measures about 60,700.
+
+### Known limits
+- Starting, enabling, disabling and deleting a patchless protection are not tools yet. They change
+  what runs on an asset, and they were not tested.
+- The test tenant has no patchless protections, so `list_patchless_protection_events` was not run
+  on a real protection. With a made-up id it returns `ERROR 403`. The `statusIn` filter of the protection search exists, but its values are not
+  known: a guessed value returns `ERROR 400`.
+- `search_available_patches_grouped` takes a `size` of 500 at most and pages with `from`.
+- Left out on purpose: `/exploitIntelligence/threat`, `/findings/cve` and `/scanProfile/tags` return
+  errors from the server. `/me/organization` returns the organization secret key.
+
+### Unchanged
+- v1 (`vicarius-mcp`) has no changes in this release. It is published at 1.6.0 because both
+  packages share one version number.
+
+### Upgrade notes
+- No action is needed. The new tools are read-only, so `VICARIUS_READ_ONLY=true` keeps them.
+
 ## [1.5.0] - 2026-10-06
 
 Four new read-only tools for v2, found by checking the vRx API for endpoints that the tools did

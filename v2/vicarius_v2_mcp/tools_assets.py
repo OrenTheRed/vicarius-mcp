@@ -92,6 +92,13 @@ def list_software_versions(product_id: str, params: dict | None = None, tenant: 
     return _get(f"/software/{seg(product_id)}/versions", tenant=tenant, params=params)
 
 
+@read_tool
+def get_software_version(product_id: str, platform_information_id: str, tenant: str | None = None) -> str:
+    """Get one installed version of a product, with asset and finding counts. Both ids come from a
+    search_software or search_findings row (productId, platformInformationId)."""
+    return _get(f"/software/{seg(product_id)}/version/{seg(platform_information_id)}", tenant=tenant)
+
+
 # ---------------------------------------------------------------------------
 # Software Groups
 # ---------------------------------------------------------------------------
@@ -111,6 +118,13 @@ def list_software_group_software(software_group_id: str, params: dict | None = N
     software_group_id comes from list_software_groups. params is optional paging: size and from (the
     offset of the first row). searchAfter is not used here."""
     return _get(f"/softwareGroups/{seg(software_group_id)}/software/view", tenant=tenant, params=params)
+
+
+@read_tool
+def search_software_for_static_group(params: dict | None = None, tenant: str | None = None) -> str:
+    """Find software for a STATIC software group (productId, assetCount, findingCount, versions).
+    params: fullTextSearch, size, from (offset)."""
+    return _get("/softwareGroups/static/software/search", tenant=tenant, params=params)
 
 
 @write_tool

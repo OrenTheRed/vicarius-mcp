@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from .app import destructive_tool, read_tool, write_tool
 from .client import _delete, _get, _post, _put, seg
 
@@ -50,6 +52,48 @@ def list_risk_tags(tenant: str | None = None) -> str:
     A finding's own tags are in the riskTags of get_finding. The whole catalogue (about 20 tags) comes back
     in one reply; it is not paged and takes no filters. This tool only reads: it cannot change a weight."""
     return _get("/v2/risk-tags", tenant=tenant)
+
+
+# ---------------------------------------------------------------------------
+# Patchless Protection (vShield)
+# ---------------------------------------------------------------------------
+
+# view -> route under /findings/{finding_id}
+PATCHLESS_VIEWS = {
+    "eligibility": "/patchless-protection-eligibility",
+    "protections": "/patchless-protections",
+    "affected_findings": "/patchless-protection-affected-findings",
+    "affected_findings_count": "/patchless-protection-affected-findings-count",
+}
+
+
+@read_tool
+def get_finding_patchless_protection(finding_id: str, view: Literal["eligibility", "protections", "affected_findings", "affected_findings_count"] = "eligibility", params: dict | None = None, tenant: str | None = None) -> str:
+    """Patchless protection (vShield) for one finding (its id from search_findings, not the CVE).
+    view: eligibility (eligible, reason, availableModes), protections (those covering it),
+    affected_findings (others one protection would also cover; params: size) or
+    affected_findings_count."""
+    return _get(f"/findings/{seg(finding_id)}{PATCHLESS_VIEWS[view]}", tenant=tenant, params=params)
+
+
+@read_tool
+def search_patchless_protections(filters: dict | None = None, params: dict | None = None, tenant: str | None = None) -> str:
+    """Search patchless protections (vShield). filters (body): fullTextSearch, assetId, modeIn
+    (MONITOR, MONITOR_AND_PREVENT), assetGroupIdsIn. params: size, searchAfter."""
+    return _post("/patchless-protections/search", tenant=tenant, params=params, body=filters or {})
+
+
+@read_tool
+def count_patchless_protections(filters: dict | None = None, tenant: str | None = None) -> str:
+    """Count patchless protections (vShield). filters as in search_patchless_protections."""
+    return _post("/patchless-protections/count", tenant=tenant, body=filters or {})
+
+
+@read_tool
+def list_patchless_protection_events(protection_id: str, params: dict | None = None, tenant: str | None = None) -> str:
+    """List the events of one patchless protection (id from search_patchless_protections).
+    params: size, searchAfter."""
+    return _get(f"/patchless-protections/{seg(protection_id)}/events", tenant=tenant, params=params)
 
 
 # ---------------------------------------------------------------------------
