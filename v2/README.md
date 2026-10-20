@@ -1,7 +1,7 @@
 # vicarius-v2-mcp (v2): vRx v2 Customer API
 
 MCP server for the **Vicarius vRx v2 Customer API** (`https://vicarius.cloud/api`). It gives an AI
-agent **119 tools** (72 read-only, 21 write, 26 destructive) covering sites, assets, software,
+agent **129 tools** (82 read-only, 21 write, 26 destructive) covering sites, assets, software,
 vulnerability findings, scan/patch/script policies, CIS compliance, reports, credentials, users
 and API keys. One running server can manage **any number of tenants**.
 
@@ -52,7 +52,7 @@ In practice you just say *"show critical findings for globex"* and the agent pas
 | `VICARIUS_V2_TENANTS_FILE` | see table above | Path to the tenants file. |
 | `VICARIUS_V2_TENANTS` | | Tenants as an inline JSON string, same shape as the file. Only used when the tenants file does not exist. |
 | `VICARIUS_V2_DEFAULT_TENANT` | | Tenant used when a tool call omits `tenant`. |
-| `VICARIUS_READ_ONLY` | `false` | Set to `true` to expose only the 72 read-only tools. |
+| `VICARIUS_READ_ONLY` | `false` | Set to `true` to expose only the 82 read-only tools. |
 | `VICARIUS_V2_TOOLSETS` | all tools | Offer fewer tools: `core`, group names, or a mix. See [Smaller tool list](#smaller-tool-list). |
 | `VICARIUS_V2_ALLOW_CUSTOM_HOSTS` | `false` | Allow `add_configured_tenant` to save a host outside `vicarius.cloud`. Hosts you put in the tenants file yourself are always allowed. |
 | `VICARIUS_V2_JEV` | `false` | Set to `true` to add the optional `assess_finding_urgency` tool. Needs `TYPESAFE_API_KEY` too. See [Optional: Jev urgency assessment](#optional-jev-urgency-assessment). |
@@ -93,8 +93,8 @@ without notice, so if one starts failing, the rest of the server is unaffected.
 
 ### Smaller tool list
 
-The full tool list is sent to the model with every conversation: about 16,000 to 20,000 tokens for
-119 tools. A model with a small context window cannot hold that, and picks tools less reliably from
+The full tool list is sent to the model with every conversation: about 17,000 to 22,000 tokens for
+129 tools. A model with a small context window cannot hold that, and picks tools less reliably from
 a long list. `VICARIUS_V2_TOOLSETS` offers fewer tools:
 
 | Value | Tools |
@@ -230,6 +230,7 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 | `remove_configured_tenant` | **destructive** | Remove a locally configured tenant by name. |
 | `list_organizations` | read | List every Vicarius organization (tenant) visible to the account behind the given tenant's API key. |
 | `list_organization_sites` | read | List the sites visible to the current user within a specific organization by its org_id (UUID). |
+| `get_my_access` | read | Show who the API key acts as: the user id, the current site, and the key's permissions on that site. Use it to explain an `ERROR 403`. |
 
 ### API Keys
 
@@ -327,6 +328,7 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 | `search_software` | read | Search the software inventory. |
 | `get_software` | read | Get details for a single software product by its productId. |
 | `list_software_versions` | read | List the installed versions of one software product, with asset and finding counts per version. |
+| `get_software_version` | read | Get one installed version of a product (productId + platformInformationId), with asset and finding counts. |
 
 ### Software Groups
 
@@ -334,6 +336,7 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 |---|---|---|
 | `list_software_groups` | read | List/search software groups. |
 | `list_software_group_software` | read | List the software products inside one software group, with asset and finding counts. |
+| `search_software_for_static_group` | read | Find software products to put in a STATIC software group. |
 | `create_software_group` | write | Create a software group. |
 | `update_software_group` | **destructive** | Update a software group by id. |
 | `delete_software_group` | **destructive** | Delete a software group by its id. |
@@ -353,6 +356,20 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 `riskTags` of `get_finding`. In the vRx web app an admin can change a vTag's weight (a multiplier on the
 platform default of 1.0); this server only reads them. Changing a weight needs an API key that is allowed to
 write vTags, and it re-scores findings, so there is no tool for it yet.
+
+### Patchless Protection (vShield)
+
+| Tool | Access | Description |
+|---|---|---|
+| `get_finding_patchless_protection` | read | For one finding: whether it can be protected and in which modes, the protections that cover it, or the other findings one protection would also cover. |
+| `search_patchless_protections` | read | Search patchless protections by text, asset, mode or asset group. |
+| `count_patchless_protections` | read | Count patchless protections with the same filters. |
+| `list_patchless_protection_events` | read | List the events of one protection. |
+
+Patchless protection (vShield) shields a vulnerable application until it can be patched, in `MONITOR`
+or `MONITOR_AND_PREVENT` mode. Operating system components cannot be protected: their eligibility
+says `OPERATING_SYSTEM_COMPONENT`. These tools only read. Starting, enabling, disabling and deleting a
+protection are not tools yet. The `statusIn` search filter exists, but its values are not known.
 
 ### Vulnerability Exclusion Rules
 
@@ -376,6 +393,7 @@ write vTags, and it re-scores findings, so there is no tool for it yet.
 |---|---|---|
 | `search_scan_profiles` | read | Browse the catalog of scan profiles (what kind of scan to run - discovery, full vulnerability, PCI, HIPAA, CIS, etc). |
 | `get_scan_profile` | read | Get full details for a single scan profile by its id. |
+| `list_scan_profile_options` | read | List the scan profile categories or perspectives that `search_scan_profiles` filters on. |
 
 ### Scan Policies
 
@@ -426,6 +444,7 @@ write vTags, and it re-scores findings, so there is no tool for it yet.
 |---|---|---|
 | `list_patch_groups` | read | List/search patch groups. |
 | `list_patch_group_patches` | read | List the patches inside one patch group, with asset and CVE counts. |
+| `search_patches_for_static_group` | read | Find patches to put in a STATIC patch group. |
 | `create_patch_group` | write | Create a patch group. |
 | `update_patch_group` | **destructive** | Update a patch group by id. |
 | `delete_patch_group` | **destructive** | Delete a patch group by its id. |
@@ -435,6 +454,7 @@ write vTags, and it re-scores findings, so there is no tool for it yet.
 | Tool | Access | Description |
 |---|---|---|
 | `search_available_patches` | read | Search patches available/pending to be installed (as opposed to the full catalog). |
+| `search_available_patches_grouped` | read | Pending patches with one row per patch instead of one per asset: asset count, the CVEs it fixes, and the affected software. |
 
 ### Reboot Profiles
 

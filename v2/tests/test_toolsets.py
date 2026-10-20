@@ -90,7 +90,7 @@ def test_the_tool_list_stays_within_its_size_budget():
         return sum(len(json.dumps({"n": t.name, "d": t.description, "s": t.parameters}))
                    for t in tools_in_process() if t.name in names)
 
-    assert size(set(ALL)) < 58_000        # about 14,500 tokens; measured 53,000 when this was written
+    assert size(set(ALL)) < 64_000        # about 16,000 tokens; measured 60,700 with the 1.6.0 tools
     assert size(set(CORE)) < 11_000       # about 2,750 tokens; measured 8,600
 
 
@@ -178,3 +178,89 @@ def test_the_tool_counts_in_the_docs_match_the_tools():
     assert f"**{total + v1_total} tools** across both servers" in top
     assert f"{read_only} of {total} for v2" in top
     assert f"multi-tenant ({total} tools)" in top
+
+
+# ---------------------------------------------------------------------------
+# 1.6.0: read tools for routes the vRx web app calls, each run against a live tenant
+# ---------------------------------------------------------------------------
+
+NEW_READ_TOOLS_1_6 = [
+    ("get_finding_patchless_protection", {"finding_id": "f-1"}, "GET", "/findings/f-1/patchless-protection-eligibility", "findings"),
+    ("get_finding_patchless_protection", {"finding_id": "f-1", "view": "affected_findings_count"}, "GET", "/findings/f-1/patchless-protection-affected-findings-count", "findings"),
+    ("search_patchless_protections", {}, "POST", "/patchless-protections/search", "findings"),
+    ("count_patchless_protections", {}, "POST", "/patchless-protections/count", "findings"),
+    ("list_patchless_protection_events", {"protection_id": "pp-1"}, "GET", "/patchless-protections/pp-1/events", "findings"),
+    ("search_available_patches_grouped", {}, "POST", "/availablePatches/searchGroupedByPatchDefinition", "patches"),
+    ("search_patches_for_static_group", {}, "GET", "/patchGroups/static/patches/search", "patches"),
+    ("get_software_version", {"product_id": "p-1", "platform_information_id": "pi-1"}, "GET", "/software/p-1/version/pi-1", "assets"),
+    ("search_software_for_static_group", {}, "GET", "/softwareGroups/static/software/search", "assets"),
+    ("list_scan_profile_options", {"kind": "perspectives"}, "GET", "/scanProfile/perspectives", "scanning"),
+]
+
+
+@pytest.mark.parametrize("name, args, method, path, group", NEW_READ_TOOLS_1_6)
+def test_1_6_read_tools_are_read_only_route_to_the_tenant_and_surface_errors(vicarius_v2_env, name, args, method, path, group):
+    import httpx
+    import respx
+    from fastmcp import Client
+    from vicarius_v2_mcp.client import _base
+
+    tool = {t.name: t for t in tools_in_process()}[name]
+    assert tool.annotations.readOnlyHint is True and GROUP_OF[name] == group and name not in CORE
+
+    async def call(**extra):
+        async with Client(mcp) as client:
+            return (await client.call_tool(name, {**args, **extra}, raise_on_error=False)).content[0].text
+
+    with respx.mock(assert_all_called=False) as router:
+        acme = router.route(method=method, url=f"{_base('acme')}{path}").mock(return_value=httpx.Response(200, json=[]))
+        beta = router.route(method=method, url=f"{_base('beta')}{path}").mock(return_value=httpx.Response(200, json=[{"ok": 1}]))
+        asyncio.run(call())
+        asyncio.run(call(tenant="beta"))
+        assert acme.call_count == 1 and beta.call_count == 1
+        beta.mock(return_value=httpx.Response(403, text="Forbidden"))
+        assert asyncio.run(call(tenant="beta")).startswith("ERROR 403")
+
+
+def test_get_my_access_combines_three_routes_and_passes_errors_through(vicarius_v2_env):
+    import httpx
+    import respx
+    from vicarius_v2_mcp.client import _base
+    from vicarius_v2_mcp.tools_tenants import get_my_access
+
+    assert GROUP_OF["get_my_access"] == "tenants" and "get_my_access" not in CORE
+    with respx.mock() as router:
+        router.get(f"{_base('acme')}/me").mock(return_value=httpx.Response(200, json={"userId": "u-1"}))
+        router.get(f"{_base('acme')}/me/site").mock(return_value=httpx.Response(200, json={"name": "Global Site"}))
+        router.get(f"{_base('acme')}/me/site/permissions").mock(return_value=httpx.Response(403, text="Forbidden"))
+        result = json.loads(get_my_access())
+    assert result["user"]["userId"] == "u-1" and result["site"]["name"] == "Global Site"
+    assert result["sitePermissions"].startswith("ERROR 403")
+
+
+def test_search_available_patches_grouped_sends_filters_and_paging(vicarius_v2_env):
+    import httpx
+    import respx
+    from vicarius_v2_mcp.client import _base
+    from vicarius_v2_mcp.tools_patches import search_available_patches_grouped
+
+    with respx.mock() as router:
+        route = router.post(f"{_base('acme')}/availablePatches/searchGroupedByPatchDefinition").mock(
+            return_value=httpx.Response(200, json=[{"patchIdentifier": "KB1", "cveStrings": ["CVE-1"]}]))
+        rows = json.loads(search_available_patches_grouped({"operatingSystemFamilyIn": ["WINDOWS"]}, {"size": 2, "from": 2}))
+    request = route.calls.last.request
+    assert rows[0]["cveStrings"] == ["CVE-1"]
+    assert json.loads(request.content) == {"operatingSystemFamilyIn": ["WINDOWS"]}
+    assert request.url.params["size"] == "2" and request.url.params["from"] == "2"
+
+
+def test_a_finding_id_cannot_escape_its_path_segment(vicarius_v2_env):
+    import httpx
+    import respx
+    from vicarius_v2_mcp.client import _base
+    from vicarius_v2_mcp.tools_vulnerabilities import get_finding_patchless_protection
+
+    with respx.mock() as router:
+        route = router.get(url__startswith=f"{_base('acme')}/findings/").mock(return_value=httpx.Response(200, json={}))
+        get_finding_patchless_protection("../apiKeys")
+    assert route.calls.last.request.url.raw_path.startswith(b"/api/findings/..%2FapiKeys/patchless")

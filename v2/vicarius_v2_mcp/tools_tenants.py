@@ -70,6 +70,19 @@ def list_organizations(tenant: str | None = None) -> str:
 
 
 @read_tool
+def get_my_access(tenant: str | None = None) -> str:
+    """Who the API key acts as: user id, current site, and its permissions there. Explains an ERROR 403."""
+    access = {}
+    for key, path in (("user", "/me"), ("site", "/me/site"), ("sitePermissions", "/me/site/permissions")):
+        raw = _get(path, tenant=tenant)
+        try:
+            access[key] = json.loads(raw)
+        except ValueError:
+            access[key] = raw  # an ERROR string, passed through as-is
+    return json.dumps(access, indent=2)
+
+
+@read_tool
 def list_organization_sites(org_id: str, tenant: str | None = None) -> str:
     """List the sites visible to the current user within a specific organization by its org_id (UUID)."""
     return _get(f"/me/organizations/{seg(org_id)}/sites", tenant=tenant)

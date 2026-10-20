@@ -48,6 +48,13 @@ def list_patch_group_patches(patch_group_id: str, params: dict | None = None, te
     return _get(f"/patchGroups/{seg(patch_group_id)}/patches/view", tenant=tenant, params=params)
 
 
+@read_tool
+def search_patches_for_static_group(params: dict | None = None, tenant: str | None = None) -> str:
+    """Find patches for a STATIC patch group (patchDefinitionId, assetCount, cveCount). params:
+    fullTextSearch, size, from (offset)."""
+    return _get("/patchGroups/static/patches/search", tenant=tenant, params=params)
+
+
 @write_tool
 def create_patch_group(payload: dict, tenant: str | None = None) -> str:
     """Create a patch group. payload: name, description, type (STATIC/DYNAMIC), and either
@@ -77,6 +84,13 @@ def search_available_patches(filters: dict | None = None, params: dict | None = 
     """Search patches available/pending to be installed (as opposed to the full catalog).
     Accepts the same filters as search_patches."""
     return _post("/availablePatches/search", tenant=tenant, params=params, body=filters or {})
+
+
+@read_tool
+def search_available_patches_grouped(filters: dict | None = None, params: dict | None = None, tenant: str | None = None) -> str:
+    """Pending patches, one row per patch (not per asset), with assetCount, cveStrings (CVEs it
+    fixes) and affectedSoftware. filters as in search_patches. params: size (max 500), from (offset)."""
+    return _post("/availablePatches/searchGroupedByPatchDefinition", tenant=tenant, params=params, body=filters or {})
 
 
 # ---------------------------------------------------------------------------
