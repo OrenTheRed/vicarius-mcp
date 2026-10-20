@@ -9,6 +9,26 @@ for the people who use the servers: what was added, what changed, what was fixed
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-20
+
+A one-line installer for macOS and Linux.
+
+### Added
+- A one-line installer for macOS and Linux:
+  `curl -fsSL https://raw.githubusercontent.com/OrenTheRed/vicarius-mcp/main/install.sh | bash`.
+  It asks its questions first (type `b` to go back one question), shows a review, and changes
+  nothing until you submit. It detects the system, installs git, curl, tar and gzip if they are
+  missing, then installs uv and the servers. It writes the v2 tenants file, readable by you only,
+  and connects Claude Code, Codex or Claude Desktop. `--dry-run` shows what it would do.
+- The installer checks each v2 API key with one read-only call before it keeps the key. API keys
+  never go on a command line, except the v1 key for Claude Code and Codex, which their own
+  `mcp add` commands need.
+- CI lints the installer with shellcheck and tests it on Linux and macOS, including bash 3.2.
+
+### Unchanged
+- The v1 and v2 servers have no changes in this release. Both packages are published at 1.7.0
+  because they share one version number.
+
 ## [1.6.0] - 2026-10-20
 
 Ten new read-only tools for v2. They come from a second endpoint check, which compared the routes
