@@ -9,7 +9,7 @@ for the people who use the servers: what was added, what changed, what was fixed
 
 ## [Unreleased]
 
-## [1.6.0] - 2026-10-10
+## [1.6.0] - 2026-10-20
 
 Ten new read-only tools for v2. They come from a second endpoint check, which compared the routes
 the vRx web app calls with the routes the tools use. All ten were run against a live tenant.
