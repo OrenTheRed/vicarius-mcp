@@ -47,7 +47,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - run: python3 -m unittest discover -s scripts -v
+      - run: python3 -m unittest discover -s scripts -p 'test_release*.py' -v
+
+  installer:
+    name: installer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Lint
+        if: runner.os == 'Linux'
+        run: shellcheck -s bash install.sh
+      - name: Test with the default bash
+        run: python3 -m unittest scripts.test_install -v
+      - name: Test with bash 3.2, the macOS default
+        if: runner.os == 'macOS'
+        run: INSTALL_TEST_BASH=/bin/bash python3 -m unittest scripts.test_install -v
 
   secret-scan:
     runs-on: ubuntu-latest

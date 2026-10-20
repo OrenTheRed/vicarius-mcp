@@ -36,6 +36,7 @@ You can install either server or both; they run side by side.
 - [Features](#features)
 - [Which server do I need?](#which-server-do-i-need)
 - [Quick start](#quick-start)
+  - [One-line install (macOS and Linux)](#one-line-install-macos-and-linux)
   - [1. Install the prerequisites](#1-install-the-prerequisites)
   - [2. Install the server](#2-install-the-server)
   - [3. Add your API key](#3-add-your-api-key)
@@ -75,6 +76,29 @@ If you're not sure, ask your Vicarius contact which API your account uses. You c
 both.
 
 ## Quick start
+
+### One-line install (macOS and Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/OrenTheRed/vicarius-mcp/main/install.sh | bash
+```
+
+The installer asks its questions first: which servers, your v2 tenants and API keys (it checks
+each key with one read-only call), your v1 dashboard and key, read-only mode, how many tools, which
+AI clients to connect (Claude Code, Codex, Claude Desktop), and which version. Type `b` to go back
+one question and `q` to quit. It shows a review, and nothing changes until you submit.
+
+Then it does steps 1 to 4 below for you. It detects your system and installs git, curl, tar and
+gzip if they are missing (with apt, dnf, yum, pacman, apk, zypper or Homebrew), installs uv and the
+servers, writes the tenants file (readable by you only, with a `.bak` copy of the old one), and
+connects the clients you picked.
+
+- To see what it would do without changing anything: `curl -fsSL https://raw.githubusercontent.com/OrenTheRed/vicarius-mcp/main/install.sh | bash -s -- --dry-run`
+- It needs bash. On Alpine, run `apk add bash` first.
+- On Windows, run it inside WSL, or follow the Windows steps below.
+- To read the script before you run it, open [`install.sh`](install.sh).
+
+The steps below do the same by hand.
 
 ### 1. Install the prerequisites
 
