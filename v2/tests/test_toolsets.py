@@ -90,7 +90,7 @@ def test_the_tool_list_stays_within_its_size_budget():
         return sum(len(json.dumps({"n": t.name, "d": t.description, "s": t.parameters}))
                    for t in tools_in_process() if t.name in names)
 
-    assert size(set(ALL)) < 64_000        # about 16,000 tokens; measured 60,700 with the 1.6.0 tools
+    assert size(set(ALL)) < 74_000        # about 18,500 tokens; measured 70,900 with the 1.8.0 tools
     assert size(set(CORE)) < 11_000       # about 2,750 tokens; measured 8,600
 
 

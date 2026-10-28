@@ -11,10 +11,11 @@ from .client import _get, _post, seg
 
 
 @read_tool
-def get_cis_benchmark_catalog(params: dict | None = None, tenant: str | None = None) -> str:
+def get_cis_benchmark_catalog(params: dict | None = None, summary: bool = False, tenant: str | None = None) -> str:
     """Browse the catalog of CIS compliance benchmarks. params supports benchmarkString, title,
-    workbenchId, version, isActive, familyIn, fullTextSearch, sort, sortDirection, searchAfter, size."""
-    return _post("/complianceBenchmark/info", tenant=tenant, params=params)
+    workbenchId, version, isActive, familyIn, fullTextSearch, sort, sortDirection, searchAfter, size.
+    summary=True returns short rows (id, title, version, active) for every benchmark; it ignores size."""
+    return _post("/complianceBenchmark" if summary else "/complianceBenchmark/info", tenant=tenant, params=params)
 
 
 # ---------------------------------------------------------------------------

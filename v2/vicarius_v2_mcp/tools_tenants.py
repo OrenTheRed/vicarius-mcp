@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from typing import Literal
 
 from .app import destructive_tool, read_tool, write_tool
 import os
@@ -137,7 +138,7 @@ def list_org_members(tenant: str | None = None) -> str:
 
 @write_tool
 def invite_members(emails: list, first_names: list | None = None, last_names: list | None = None, site_id: str | None = None, tenant: str | None = None) -> str:
-    """Invite one or more users by email to join the organization. emails is a list of addresses;
+    """[Experimental: undocumented endpoint] Invite one or more users by email to join the organization. emails is a list of addresses;
     first_names/last_names are optional parallel lists; site_id (UUID) optionally scopes all invitees
     to a specific site."""
     users = []
@@ -192,6 +193,46 @@ def list_user_group_members(group_id: str, tenant: str | None = None) -> str:
 def batch_add_group_members(group_id: str, user_ids: list, tenant: str | None = None) -> str:
     """Add one or more users (by userId) to a user group."""
     return _post(f"/settings/user-groups/{seg(group_id)}/members/batchAdd", tenant=tenant, body={"userIds": user_ids})
+
+
+@destructive_tool
+def update_user_group_members(group_id: str, user_ids: list, mode: Literal["remove", "replace"] = "remove", tenant: str | None = None) -> str:
+    """Change a user group's members. mode="remove" takes user_ids out of the group;
+    mode="replace" makes user_ids the group's whole member list."""
+    path = f"/settings/user-groups/{seg(group_id)}/members"
+    if mode == "replace":
+        return _put(f"{path}/batchUpdate", tenant=tenant, body={"userIds": user_ids})
+    return _post(f"{path}/batchRemove", tenant=tenant, body={"userIds": user_ids})
+
+
+@destructive_tool
+def rename_user_group(group_id: str, display_name: str, tenant: str | None = None) -> str:
+    """Rename a user group."""
+    return _put(f"/settings/user-groups/{seg(group_id)}", tenant=tenant, body={"displayName": display_name})
+
+
+@destructive_tool
+def delete_user_group(group_id: str, tenant: str | None = None) -> str:
+    """Delete a user group. Its members lose the site access the group gave them."""
+    return _delete(f"/settings/user-groups/{seg(group_id)}", tenant=tenant)
+
+
+@read_tool
+def get_user_group_site_permissions(group_id: str, site_id: str | None = None, tenant: str | None = None) -> str:
+    """List the sites a user group can reach and its permission on each (WRITER/ADMIN/VIEWER),
+    or only the permission on site_id."""
+    path = f"/settings/user-groups/{seg(group_id)}/sites"
+    return _get(f"{path}/{seg(site_id)}/grants" if site_id else path, tenant=tenant)
+
+
+@destructive_tool
+def update_user_group_site_permission(group_id: str, site_id: str, permission: str | None = None, tenant: str | None = None) -> str:
+    """Grant, change, or revoke a user group's permission on a site. permission must be one of
+    WRITER, ADMIN, VIEWER, or omitted/None to revoke access to that site."""
+    valid = {"WRITER", "ADMIN", "VIEWER"}
+    if permission is not None and permission not in valid:
+        return f'ERROR: permission must be one of {sorted(valid)} or None, got "{permission}"'
+    return _put(f"/settings/user-groups/{seg(group_id)}/sites/{seg(site_id)}/grants", tenant=tenant, body={"permission": permission})
 
 
 # ---------------------------------------------------------------------------

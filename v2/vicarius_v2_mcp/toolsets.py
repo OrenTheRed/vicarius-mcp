@@ -1,6 +1,6 @@
 """Choose which tools the server offers, with VICARIUS_V2_TOOLSETS.
 
-The full tool list costs about 17,000 to 22,000 tokens of every conversation. That is fine for a
+The full tool list costs about 20,000 to 26,000 tokens of every conversation. That is fine for a
 large hosted model and too much for a local model with a small context window, which also picks
 tools less reliably from a long list. A smaller list fixes both.
 

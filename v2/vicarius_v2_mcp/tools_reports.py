@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from .app import destructive_tool, read_tool, write_tool
-from .client import _delete, _get, _post, _put, seg
+from .client import _delete, _get, _patch, _post, _put, seg
 
 # ---------------------------------------------------------------------------
 # Scan Reports (evidence files)
@@ -28,10 +30,12 @@ def download_scan_report(evidence_file_id: str, tenant: str | None = None) -> st
 
 
 @read_tool
-def list_reports(params: dict | None = None, tenant: str | None = None) -> str:
+def list_reports(params: dict | None = None, scheduled: bool = False, tenant: str | None = None) -> str:
     """List custom/scheduled reports. params supports siteId, ownerUserId, name, fullTextSearch,
-    enabled, scheduledOnly, sort, sortDirection, searchAfter, size, fields."""
-    return _get("/reports", tenant=tenant, params=params)
+    enabled, scheduledOnly, sort, sortDirection, searchAfter, size, fields. scheduled=True lists
+    only reports with a schedule, and adds the params publicOnly, publicReportSpecId and
+    nextExecutionAtRange.from/to and lastExecutionAtRange.from/to (epoch ms)."""
+    return _get("/reports/scheduled" if scheduled else "/reports", tenant=tenant, params=params)
 
 
 @write_tool
@@ -80,6 +84,52 @@ def preview_report(report_id: str, tenant: str | None = None) -> str:
     """Preview a report's current content as CSV text, without running or exporting it. Large
     previews are truncated."""
     return _get(f"/reports/{seg(report_id)}/preview", tenant=tenant, params={"format": "CSV"})
+
+
+@write_tool
+def export_report(report_id: str, tenant: str | None = None) -> str:
+    """Run a report now. Returns an executionId; follow it with get_report_execution."""
+    return _post(f"/reports/{seg(report_id)}/export", tenant=tenant)
+
+
+@write_tool
+def set_report_enabled(report_id: str, enabled: bool, tenant: str | None = None) -> str:
+    """Turn a report's schedule on or off without changing the schedule."""
+    return _patch(f"/reports/{seg(report_id)}/enabled", tenant=tenant, body={"enabled": enabled})
+
+
+@destructive_tool
+def set_report_schedule(report_id: str, schedule: dict | None = None, tenant: str | None = None) -> str:
+    """Replace a report's schedule, or remove it when schedule is left out. schedule: frequency
+    (ONCE/DAILY/WEEKLY/MONTHLY/CUSTOM), startTime (epoch ms), timezone, daysOfWeek, daysOfMonth,
+    weeksOfMonth, monthsOfYear, validFrom, validTo, numberOfOccurrences."""
+    path = f"/reports/{seg(report_id)}/schedule"
+    if schedule is None:
+        return _delete(path, tenant=tenant)
+    return _patch(path, tenant=tenant, body=schedule)
+
+
+# ---------------------------------------------------------------------------
+# Public Report Specs (the ready-made reports Vicarius publishes)
+# ---------------------------------------------------------------------------
+
+
+@read_tool
+def list_public_report_specs(spec_id: str | None = None, tenant: str | None = None) -> str:
+    """List the ready-made report definitions Vicarius publishes (for example "Operating System
+    Report"), or get one by spec_id. Use add_public_report to make one a report of your own."""
+    return _get(f"/publicReportSpecs/{seg(spec_id)}" if spec_id else "/publicReportSpecs", tenant=tenant)
+
+
+@write_tool
+def add_public_report(spec_id: str, mode: Literal["link", "clone"] = "link", name: str | None = None, tenant: str | None = None) -> str:
+    """Create a report from a public report definition. mode="link" follows later changes Vicarius
+    makes to the definition (only its schedule and recipients can change); mode="clone" makes an
+    independent copy you can edit, named name (up to 200 characters)."""
+    path = f"/publicReportSpecs/{seg(spec_id)}/{mode}"
+    if mode == "clone":
+        return _post(path, tenant=tenant, body={"name": name} if name else {})
+    return _post(path, tenant=tenant)
 
 
 # ---------------------------------------------------------------------------
