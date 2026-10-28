@@ -42,8 +42,9 @@ operations that had no tool.
   went from 64,000 to 74,000 characters (measured 70,900).
 
 ### Known limits
-- The read tools were run against a live tenant. The write and destructive tools were tested
-  against mocked routes only, not a live tenant.
+- The read tools were run against a live tenant. Of the write and destructive tools, only
+  `export_report` was run live (the run completed with 511 rows); the others were tested against
+  mocked routes only.
 - `get_user_group_site_permissions` returned 403 with the test key, which has no user group rights.
 - Not added: uploading files to a private script (the route takes a multipart file upload) and
   `POST /api/sites/{id}/agents`, which does the same as `create_site_agent`.
