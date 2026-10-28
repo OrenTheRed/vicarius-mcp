@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from .app import destructive_tool, read_tool, write_tool
 from .client import _delete, _get, _post, _put, seg
 
@@ -21,6 +23,13 @@ def search_assets(filters: dict | None = None, params: dict | None = None, tenan
 def get_asset(asset_id: str, tenant: str | None = None) -> str:
     """Get full details for a single asset by its assetId."""
     return _get(f"/asset/{seg(asset_id)}", tenant=tenant)
+
+
+@destructive_tool
+def rename_asset(asset_id: str, name: str | None = None, tenant: str | None = None) -> str:
+    """Set the name vRx shows for an asset. Leave name out to go back to the name the agent reports."""
+    body = {"name": name, "nameOverridden": True} if name else {"nameOverridden": False}
+    return _put(f"/assets/{seg(asset_id)}/name", tenant=tenant, body=body)
 
 
 @read_tool
@@ -64,6 +73,18 @@ def delete_asset_group(asset_group_id: str, tenant: str | None = None) -> str:
     return _delete(f"/assetGroups/{seg(asset_group_id)}", tenant=tenant)
 
 
+@read_tool
+def generate_group_expression(kind: Literal["asset", "patch"], text: str | None = None, software_references: list | None = None, tenant: str | None = None) -> str:
+    """Turn a plain description ("all Windows servers") into the CEL expression a DYNAMIC asset or
+    patch group uses. Changes nothing; AI-made, so check the result. For a patch group,
+    software_references (a list of software references) can replace text."""
+    if kind == "patch" and software_references:
+        return _post("/patchGroups/generateExpressionFromSoftware", tenant=tenant, body={"softwareReferences": software_references})
+    if not text:
+        return "ERROR: text is required (or software_references, for kind=patch)"
+    return _post(f"/{kind}Groups/generateExpression", tenant=tenant, body={"input": text})
+
+
 # ---------------------------------------------------------------------------
 # Software
 # ---------------------------------------------------------------------------
@@ -99,6 +120,14 @@ def get_software_version(product_id: str, platform_information_id: str, tenant: 
     return _get(f"/software/{seg(product_id)}/version/{seg(platform_information_id)}", tenant=tenant)
 
 
+@read_tool
+def list_software_installations(platform_information_ids: list, tenant: str | None = None) -> str:
+    """List the assets that have the given software versions installed, one row per installation
+    (assetName, installationPath, osName, version, findingsCount). The ids are platformInformationId
+    values from list_software_versions or search_findings."""
+    return _get("/software/assets", tenant=tenant, params={"platformInformationIds": platform_information_ids})
+
+
 # ---------------------------------------------------------------------------
 # Software Groups
 # ---------------------------------------------------------------------------
@@ -106,14 +135,14 @@ def get_software_version(product_id: str, platform_information_id: str, tenant: 
 
 @read_tool
 def list_software_groups(params: dict | None = None, tenant: str | None = None) -> str:
-    """List/search software groups. params supports name, description, siteIds, type/typeIn,
+    """[Experimental: undocumented endpoint] List/search software groups. params supports name, description, siteIds, type/typeIn,
     fullTextSearch, sort, sortDirection, searchAfter, size, fields."""
     return _get("/softwareGroups", tenant=tenant, params=params)
 
 
 @read_tool
 def list_software_group_software(software_group_id: str, params: dict | None = None, tenant: str | None = None) -> str:
-    """List the software products inside one software group, with how many assets run each and how
+    """[Experimental: undocumented endpoint] List the software products inside one software group, with how many assets run each and how
     many findings it has (productName, publisherName, type, assetCount, findingCount).
     software_group_id comes from list_software_groups. params is optional paging: size and from (the
     offset of the first row). searchAfter is not used here."""
@@ -122,25 +151,25 @@ def list_software_group_software(software_group_id: str, params: dict | None = N
 
 @read_tool
 def search_software_for_static_group(params: dict | None = None, tenant: str | None = None) -> str:
-    """Find software for a STATIC software group (productId, assetCount, findingCount, versions).
+    """[Experimental: undocumented endpoint] Find software for a STATIC software group (productId, assetCount, findingCount, versions).
     params: fullTextSearch, size, from (offset)."""
     return _get("/softwareGroups/static/software/search", tenant=tenant, params=params)
 
 
 @write_tool
 def create_software_group(payload: dict, tenant: str | None = None) -> str:
-    """Create a software group. payload: name, description, siteId, type (STATIC/DYNAMIC), and
+    """[Experimental: undocumented endpoint] Create a software group. payload: name, description, siteId, type (STATIC/DYNAMIC), and
     either "expression" (DYNAMIC) or "platformInformationIds" (STATIC)."""
     return _post("/softwareGroups", tenant=tenant, body=payload)
 
 
 @destructive_tool
 def update_software_group(software_group_id: str, payload: dict, tenant: str | None = None) -> str:
-    """Update a software group by id. payload is the full/partial group object."""
+    """[Experimental: undocumented endpoint] Update a software group by id. payload is the full/partial group object."""
     return _put(f"/softwareGroups/{seg(software_group_id)}", tenant=tenant, body=payload)
 
 
 @destructive_tool
 def delete_software_group(software_group_id: str, tenant: str | None = None) -> str:
-    """Delete a software group by its id."""
+    """[Experimental: undocumented endpoint] Delete a software group by its id."""
     return _delete(f"/softwareGroups/{seg(software_group_id)}", tenant=tenant)

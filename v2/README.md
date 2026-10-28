@@ -1,7 +1,7 @@
 # vicarius-v2-mcp (v2): vRx v2 Customer API
 
 MCP server for the **Vicarius vRx v2 Customer API** (`https://vicarius.cloud/api`). It gives an AI
-agent **129 tools** (82 read-only, 21 write, 26 destructive) covering sites, assets, software,
+agent **148 tools** (87 read-only, 27 write, 34 destructive) covering sites, assets, software,
 vulnerability findings, scan/patch/script policies, CIS compliance, reports, credentials, users
 and API keys. One running server can manage **any number of tenants**.
 
@@ -52,7 +52,7 @@ In practice you just say *"show critical findings for globex"* and the agent pas
 | `VICARIUS_V2_TENANTS_FILE` | see table above | Path to the tenants file. |
 | `VICARIUS_V2_TENANTS` | | Tenants as an inline JSON string, same shape as the file. Only used when the tenants file does not exist. |
 | `VICARIUS_V2_DEFAULT_TENANT` | | Tenant used when a tool call omits `tenant`. |
-| `VICARIUS_READ_ONLY` | `false` | Set to `true` to expose only the 82 read-only tools. |
+| `VICARIUS_READ_ONLY` | `false` | Set to `true` to expose only the 87 read-only tools. |
 | `VICARIUS_V2_TOOLSETS` | all tools | Offer fewer tools: `core`, group names, or a mix. See [Smaller tool list](#smaller-tool-list). |
 | `VICARIUS_V2_ALLOW_CUSTOM_HOSTS` | `false` | Allow `add_configured_tenant` to save a host outside `vicarius.cloud`. Hosts you put in the tenants file yourself are always allowed. |
 | `VICARIUS_V2_JEV` | `false` | Set to `true` to add the optional `assess_finding_urgency` tool. Needs `TYPESAFE_API_KEY` too. See [Optional: Jev urgency assessment](#optional-jev-urgency-assessment). |
@@ -91,10 +91,16 @@ endpoints that the vRx web app relies on but that aren't part of the published C
 They're marked **[Experimental]** in their descriptions. Vicarius may change these endpoints
 without notice, so if one starts failing, the rest of the server is unaffected.
 
+These tools work today but call routes that are not in the published API reference
+(https://documentation.vicarius.cloud/), so their descriptions say
+**[Experimental: undocumented endpoint]**: the six software group tools, `search_patchless_protections`,
+`count_patchless_protections`, `list_patchless_protection_events`, `list_risk_tags` and
+`invite_members`.
+
 ### Smaller tool list
 
-The full tool list is sent to the model with every conversation: about 17,000 to 22,000 tokens for
-129 tools. A model with a small context window cannot hold that, and picks tools less reliably from
+The full tool list is sent to the model with every conversation: about 20,000 to 26,000 tokens for
+148 tools. A model with a small context window cannot hold that, and picks tools less reliably from
 a long list. `VICARIUS_V2_TOOLSETS` offers fewer tools:
 
 | Value | Tools |
@@ -258,6 +264,9 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 | `create_user_group` | write | Create a new user group with the given display name. |
 | `list_user_group_members` | read | List the members of a user group by its groupId. |
 | `batch_add_group_members` | write | Add one or more users (by userId) to a user group. |
+| `update_user_group_members` | **destructive** | Remove users from a group, or replace its whole member list. |
+| `rename_user_group` | **destructive** | Rename a user group. |
+| `delete_user_group` | **destructive** | Delete a user group. |
 
 ### Site Permissions
 
@@ -265,6 +274,8 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 |---|---|---|
 | `get_user_site_permissions` | read | List every site-level permission grant (WRITER/ADMIN/VIEWER) for a user by their userId. |
 | `update_user_site_permission` | **destructive** | Grant, change, or revoke a user's permission on a site. |
+| `get_user_group_site_permissions` | read | The sites a user group can reach and its permission on each, or on one site. |
+| `update_user_group_site_permission` | **destructive** | Grant, change, or revoke a user group's permission on a site. |
 
 ### Sites
 
@@ -280,15 +291,16 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 
 | Tool | Access | Description |
 |---|---|---|
-| `list_site_agents` | read | List/search site agents (the assets that perform scanning for a site). |
+| `list_site_agents` | read | List/search site agents (the assets that perform scanning for a site), or only those of one site. |
 | `create_site_agent` | write | Register an asset as a site agent. |
 
 ### Named Targets
 
 | Tool | Access | Description |
 |---|---|---|
-| `list_named_targets` | read | List/search named targets (reusable sets of network addresses). |
+| `list_named_targets` | read | List/search named targets (reusable sets of network addresses), or only those of one site. |
 | `create_named_target` | write | Create a named target. |
+| `add_named_target_to_site` | write | Attach an existing named target to a site. |
 
 ### Credentials
 
@@ -310,6 +322,7 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 |---|---|---|
 | `search_assets` | read | Search assets. |
 | `get_asset` | read | Get full details for a single asset by its assetId. |
+| `rename_asset` | **destructive** | Set the name vRx shows for an asset, or go back to the name the agent reports. |
 | `get_asset_risk_distribution` | read | Get asset counts bucketed by risk level for a site. |
 
 ### Asset Groups
@@ -320,6 +333,7 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 | `create_asset_group` | write | Create an asset group. |
 | `update_asset_group` | **destructive** | Update an asset group by id. |
 | `delete_asset_group` | **destructive** | Delete an asset group by its id. |
+| `generate_group_expression` | read | Turn a plain description into the expression a DYNAMIC asset or patch group uses. Changes nothing. |
 
 ### Software
 
@@ -329,6 +343,7 @@ revokes or overwrites existing data. Every write and destructive tool is hidden 
 | `get_software` | read | Get details for a single software product by its productId. |
 | `list_software_versions` | read | List the installed versions of one software product, with asset and finding counts per version. |
 | `get_software_version` | read | Get one installed version of a product (productId + platformInformationId), with asset and finding counts. |
+| `list_software_installations` | read | List the assets that have given software versions installed, one row per installation. |
 
 ### Software Groups
 
@@ -420,6 +435,7 @@ protection are not tools yet. The `statusIn` search filter exists, but its value
 | `create_script_policy` | write | Create a script policy. |
 | `update_script_policy` | **destructive** | Update a script policy by id. |
 | `set_script_policy_state` | **destructive** | Enable/disable a script policy or change its status. |
+| `cancel_policy_tasks` | **destructive** | Cancel the pending tasks of a patch or script policy, for example to stop a bad rollout. |
 
 ### Policies (cross-type) & Policy Logs
 
@@ -474,7 +490,7 @@ protection are not tools yet. The `statusIn` search filter exists, but its value
 
 | Tool | Access | Description |
 |---|---|---|
-| `get_cis_benchmark_catalog` | read | Browse the catalog of CIS compliance benchmarks. |
+| `get_cis_benchmark_catalog` | read | Browse the catalog of CIS compliance benchmarks, in full or as short rows (`summary=True`). |
 
 ### Compliance
 
@@ -503,13 +519,18 @@ protection are not tools yet. The `statusIn` search filter exists, but its value
 
 | Tool | Access | Description |
 |---|---|---|
-| `list_reports` | read | List custom/scheduled reports. |
+| `list_reports` | read | List custom/scheduled reports, or only those with a schedule (`scheduled=True`). |
 | `create_report` | write | Create a custom report. |
 | `delete_report` | **destructive** | Delete a report by its id. |
 | `generate_report` | write | Generate a report from a natural-language prompt describing what it should contain. |
 | `list_report_executions` | read | List report executions (runs) across all reports, or only those of report_id. |
 | `get_report_execution` | read | Get one run of a report: its status and timing. |
 | `preview_report` | read | Preview a report's current content as CSV text, without running or exporting it. |
+| `export_report` | write | Run a report now. |
+| `set_report_enabled` | write | Turn a report's schedule on or off. |
+| `set_report_schedule` | **destructive** | Replace a report's schedule, or remove it. |
+| `list_public_report_specs` | read | List the ready-made reports Vicarius publishes (such as "Operating System Report"), or get one. |
+| `add_public_report` | write | Create a report from a ready-made one: linked (follows Vicarius's changes) or cloned (your own copy). |
 
 ### Audit Logs
 
@@ -536,6 +557,10 @@ protection are not tools yet. The `statusIn` search filter exists, but its value
 |---|---|---|
 | `search_private_scripts` | read | Search the organization's private (custom) scripts. |
 | `create_private_script` | write | Create a private script. |
+| `copy_script` | write | Copy a private or public script into a new private script. |
+| `set_private_script_published` | write | Publish or unpublish a private script. |
+| `delete_private_script_file` | **destructive** | Delete one attached file from a private script. |
+| `download_script_file` | read | Download a file attached to a private or public script. |
 
 ### Public Scripts
 

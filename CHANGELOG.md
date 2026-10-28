@@ -9,6 +9,48 @@ for the people who use the servers: what was added, what changed, what was fixed
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-28
+
+v2 now covers the published API reference at https://documentation.vicarius.cloud/ (the
+`openapi.yaml` of 2026-10-20, 203 operations). Nineteen new tools and four new options cover the
+operations that had no tool.
+
+### Added
+- v2 read tools: `list_software_installations` (which assets have a given software version),
+  `list_public_report_specs` (the ready-made reports Vicarius publishes, such as "Operating System
+  Report"), `generate_group_expression` (plain words to a DYNAMIC asset or patch group rule; it
+  changes nothing), `get_user_group_site_permissions` and `download_script_file`.
+- v2 options on existing read tools: `list_site_agents(site_id=...)`,
+  `list_named_targets(site_id=...)`, `list_reports(scheduled=True)` and
+  `get_cis_benchmark_catalog(summary=True)`.
+- v2 write tools: `export_report` (run a report now), `set_report_enabled`, `add_public_report`
+  (link or clone a ready-made report), `add_named_target_to_site`, `copy_script` (from a private or
+  a public script) and `set_private_script_published`.
+- v2 destructive tools: `cancel_policy_tasks` (stop the pending tasks of a patch or script policy),
+  `rename_asset`, `set_report_schedule` (replace or remove), `delete_private_script_file`,
+  `update_user_group_members` (remove members or replace the list), `rename_user_group`,
+  `delete_user_group` and `update_user_group_site_permission`.
+- `VICARIUS_READ_ONLY=true` hides every new write and destructive tool, as before. No new tool is in
+  the `core` toolset.
+
+### Changed
+- v2: the descriptions of eleven tools that call routes missing from the published reference now
+  start with **[Experimental: undocumented endpoint]**: the six software group tools,
+  `search_patchless_protections`, `count_patchless_protections`, `list_patchless_protection_events`,
+  `list_risk_tags` and `invite_members`. They still work; Vicarius may change them without notice.
+- v2: the full tool list is now about 20,000 to 26,000 tokens (148 tools). The size test budget
+  went from 64,000 to 74,000 characters (measured 70,900).
+
+### Known limits
+- The read tools were run against a live tenant. The write and destructive tools were tested
+  against mocked routes only, not a live tenant.
+- `get_user_group_site_permissions` returned 403 with the test key, which has no user group rights.
+- Not added: uploading files to a private script (the route takes a multipart file upload) and
+  `POST /api/sites/{id}/agents`, which does the same as `create_site_agent`.
+
+### Unchanged
+- The v1 server has no changes. It is published at 1.8.0 because both packages share one version.
+
 ## [1.7.0] - 2026-10-20
 
 A one-line installer for macOS and Linux.

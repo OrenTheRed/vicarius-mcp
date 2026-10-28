@@ -46,9 +46,12 @@ def delete_site(site_id: str, tenant: str | None = None) -> str:
 
 
 @read_tool
-def list_site_agents(params: dict | None = None, tenant: str | None = None) -> str:
+def list_site_agents(params: dict | None = None, site_id: str | None = None, tenant: str | None = None) -> str:
     """List/search site agents (the assets that perform scanning for a site). params supports
-    siteId, name, modules (radarExternal/radarInternal/cis/proxy), sort, sortDirection, searchAfter, size."""
+    siteId, name, modules (radarExternal/radarInternal/cis/proxy), sort, sortDirection, searchAfter, size.
+    site_id lists only the agents registered under that site."""
+    if site_id:
+        return _get(f"/sites/{seg(site_id)}/agents", tenant=tenant, params=params)
     return _get("/site-agents", tenant=tenant, params=params)
 
 
@@ -65,9 +68,12 @@ def create_site_agent(payload: dict, tenant: str | None = None) -> str:
 
 
 @read_tool
-def list_named_targets(params: dict | None = None, tenant: str | None = None) -> str:
+def list_named_targets(params: dict | None = None, site_id: str | None = None, tenant: str | None = None) -> str:
     """List/search named targets (reusable sets of network addresses). params supports name,
-    targetSiteIdsIn, sort, sortDirection, searchAfter, size."""
+    targetSiteIdsIn, sort, sortDirection, searchAfter, size. site_id lists only the named targets
+    attached to that site."""
+    if site_id:
+        return _get(f"/sites/{seg(site_id)}/named-targets", tenant=tenant, params=params)
     return _get("/named-targets", tenant=tenant, params=params)
 
 
@@ -76,6 +82,12 @@ def create_named_target(payload: dict, tenant: str | None = None) -> str:
     """Create a named target. payload: name, description, isNetworkDevice, addressSpecs (list of
     {included, addressType: CIDR|IP_RANGE|SINGLE_IP|FQDN, addressValue}), targetSiteIds, credentialsIds."""
     return _post("/named-targets", tenant=tenant, body=payload)
+
+
+@write_tool
+def add_named_target_to_site(site_id: str, named_target_id: str, tenant: str | None = None) -> str:
+    """Attach an existing named target to a site, so the site's scans can use it."""
+    return _post(f"/sites/{seg(site_id)}/named-targets", tenant=tenant, body={"id": named_target_id})
 
 
 # ---------------------------------------------------------------------------

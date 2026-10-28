@@ -127,6 +127,14 @@ def set_script_policy_state(policy_id: str, active: bool | None = None, status: 
     return _put(f"/policies/script/{seg(policy_id)}/updateState", tenant=tenant, body=_state_body(status, active, cancel_running_tasks))
 
 
+@destructive_tool
+def cancel_policy_tasks(policy_type: Literal["patch", "script"], policy_id: str, task_entity_ids: list | None = None, tenant: str | None = None) -> str:
+    """Cancel the pending tasks of a patch or script policy, for example to stop a bad rollout.
+    task_entity_ids limits it to those tasks; leave it out to cancel them all. Returns canceledCount."""
+    body = {"taskEntityIds": task_entity_ids} if task_entity_ids else {}
+    return _post(f"/policies/{policy_type}/{seg(policy_id)}/cancelTasks", tenant=tenant, body=body)
+
+
 # ---------------------------------------------------------------------------
 # Policies (cross-type) & Policy Logs
 # ---------------------------------------------------------------------------

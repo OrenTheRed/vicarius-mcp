@@ -46,7 +46,7 @@ def findings_severity_distribution(site_id: str, asset_id: str | None = None, pr
 
 @read_tool
 def list_risk_tags(tenant: str | None = None) -> str:
-    """List the vTags (risk tags) that feed a finding's risk score: each has a tagCode (such as
+    """[Experimental: undocumented endpoint] List the vTags (risk tags) that feed a finding's risk score: each has a tagCode (such as
     exploit.ransomware), a displayName, an explanation, a category (EXPLOIT or INTELLIGENCE), the
     platformDefaultWeight and the effectiveWeight, and whether an admin changed it (overridden).
     A finding's own tags are in the riskTags of get_finding. The whole catalogue (about 20 tags) comes back
@@ -78,20 +78,20 @@ def get_finding_patchless_protection(finding_id: str, view: Literal["eligibility
 
 @read_tool
 def search_patchless_protections(filters: dict | None = None, params: dict | None = None, tenant: str | None = None) -> str:
-    """Search patchless protections (vShield). filters (body): fullTextSearch, assetId, modeIn
+    """[Experimental: undocumented endpoint] Search patchless protections (vShield). filters (body): fullTextSearch, assetId, modeIn
     (MONITOR, MONITOR_AND_PREVENT), assetGroupIdsIn. params: size, searchAfter."""
     return _post("/patchless-protections/search", tenant=tenant, params=params, body=filters or {})
 
 
 @read_tool
 def count_patchless_protections(filters: dict | None = None, tenant: str | None = None) -> str:
-    """Count patchless protections (vShield). filters as in search_patchless_protections."""
+    """[Experimental: undocumented endpoint] Count patchless protections (vShield). filters as in search_patchless_protections."""
     return _post("/patchless-protections/count", tenant=tenant, body=filters or {})
 
 
 @read_tool
 def list_patchless_protection_events(protection_id: str, params: dict | None = None, tenant: str | None = None) -> str:
-    """List the events of one patchless protection (id from search_patchless_protections).
+    """[Experimental: undocumented endpoint] List the events of one patchless protection (id from search_patchless_protections).
     params: size, searchAfter."""
     return _get(f"/patchless-protections/{seg(protection_id)}/events", tenant=tenant, params=params)
 
